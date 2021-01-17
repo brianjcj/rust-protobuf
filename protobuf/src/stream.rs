@@ -271,6 +271,13 @@ impl<'a> CodedInputStream<'a> {
         self.read_raw_varint64().map(|v| v as u32)
     }
 
+    /// Read little-endian 16-bit integer
+    pub fn read_raw_little_endian16(&mut self) -> ProtobufResult<u16> {
+        let mut bytes = [0; 2];
+        self.read(&mut bytes)?;
+        Ok(u16::from_le_bytes(bytes))
+    }
+
     /// Read little-endian 32-bit integer
     pub fn read_raw_little_endian32(&mut self) -> ProtobufResult<u32> {
         let mut bytes = [0; 4];
@@ -302,9 +309,21 @@ impl<'a> CodedInputStream<'a> {
     }
 
     /// Read `double`
+    pub fn read_double_yyp(&mut self) -> ProtobufResult<f64> {
+        let bits = self.read_raw_little_endian64()?;
+        Ok(f64::from_bits(bits))
+    }
+
+    /// Read `double`
     pub fn read_double(&mut self) -> ProtobufResult<f64> {
         let bits = self.read_raw_little_endian64()?;
         Ok(f64::from_bits(bits))
+    }
+
+    /// Read `float`
+    pub fn read_float_yyp(&mut self) -> ProtobufResult<f32> {
+        let bits = self.read_raw_little_endian32()?;
+        Ok(f32::from_bits(bits))
     }
 
     /// Read `float`
@@ -314,8 +333,18 @@ impl<'a> CodedInputStream<'a> {
     }
 
     /// Read `int64`
+    pub fn read_int64_yyp(&mut self) -> ProtobufResult<i64> {
+        self.read_raw_little_endian64().map(|v| v as i64)
+    }
+
+    /// Read `int64`
     pub fn read_int64(&mut self) -> ProtobufResult<i64> {
         self.read_raw_varint64().map(|v| v as i64)
+    }
+
+    /// Read `int32`
+    pub fn read_int32_yyp(&mut self) -> ProtobufResult<i32> {
+        self.read_raw_little_endian32().map(|v| v as i32)
     }
 
     /// Read `int32`
@@ -324,8 +353,18 @@ impl<'a> CodedInputStream<'a> {
     }
 
     /// Read `uint64`
+    pub fn read_uint64_yyp(&mut self) -> ProtobufResult<u64> {
+        self.read_raw_little_endian64()
+    }
+
+    /// Read `uint64`
     pub fn read_uint64(&mut self) -> ProtobufResult<u64> {
         self.read_raw_varint64()
+    }
+
+    /// Read `uint32`
+    pub fn read_uint32_yyp(&mut self) -> ProtobufResult<u32> {
+        self.read_raw_little_endian32()
     }
 
     /// Read `uint32`
@@ -364,8 +403,22 @@ impl<'a> CodedInputStream<'a> {
     }
 
     /// Read `bool`
+    pub fn read_bool_yyp(&mut self) -> ProtobufResult<bool> {
+        self.read_raw_little_endian32().map(|v| v != 0)
+    }
+
+    /// Read `bool`
     pub fn read_bool(&mut self) -> ProtobufResult<bool> {
         self.read_raw_varint32().map(|v| v != 0)
+    }
+
+    /// Read `enum` as `ProtobufEnum`
+    pub fn read_enum_yyp<E: ProtobufEnum>(&mut self) -> ProtobufResult<E> {
+        let i = self.read_int32_yyp()?;
+        match ProtobufEnum::from_i32(i) {
+            Some(e) => Ok(e),
+            None => Err(ProtobufError::WireError(WireError::InvalidEnumValue(i))),
+        }
     }
 
     /// Read `enum` as `ProtobufEnum`
@@ -375,6 +428,13 @@ impl<'a> CodedInputStream<'a> {
             Some(e) => Ok(e),
             None => Err(ProtobufError::WireError(WireError::InvalidEnumValue(i))),
         }
+    }
+
+    /// Read `enum` as `ProtobufEnumOrUnknown`
+    pub fn read_enum_or_unknown_yyp<E: ProtobufEnum>(
+        &mut self,
+    ) -> ProtobufResult<ProtobufEnumOrUnknown<E>> {
+        Ok(ProtobufEnumOrUnknown::from_i32(self.read_int32_yyp()?))
     }
 
     /// Read `enum` as `ProtobufEnumOrUnknown`
@@ -579,6 +639,13 @@ impl<'a> CodedInputStream<'a> {
     }
 
     /// Read `bytes` field, length delimited
+    pub fn read_bytes_yyp(&mut self) -> ProtobufResult<Vec<u8>> {
+        let mut r = Vec::new();
+        self.read_bytes_into_yyp(&mut r)?;
+        Ok(r)
+    }
+
+    /// Read `bytes` field, length delimited
     pub fn read_bytes(&mut self) -> ProtobufResult<Vec<u8>> {
         let mut r = Vec::new();
         self.read_bytes_into(&mut r)?;
@@ -600,6 +667,13 @@ impl<'a> CodedInputStream<'a> {
     }
 
     /// Read `bytes` field, length delimited
+    pub fn read_bytes_into_yyp(&mut self, target: &mut Vec<u8>) -> ProtobufResult<()> {
+        let len = self.read_raw_little_endian32()?;
+        self.read_raw_bytes_into(len, target)?;
+        Ok(())
+    }
+
+    /// Read `bytes` field, length delimited
     pub fn read_bytes_into(&mut self, target: &mut Vec<u8>) -> ProtobufResult<()> {
         let len = self.read_raw_varint32()?;
         self.read_raw_bytes_into(len, target)?;
@@ -607,10 +681,34 @@ impl<'a> CodedInputStream<'a> {
     }
 
     /// Read `string` field, length delimited
+    pub fn read_string_yyp(&mut self) -> ProtobufResult<String> {
+        let mut r = String::new();
+        self.read_string_into_yyp(&mut r)?;
+        Ok(r)
+    }
+
+    /// Read `string` field, length delimited
     pub fn read_string(&mut self) -> ProtobufResult<String> {
         let mut r = String::new();
         self.read_string_into(&mut r)?;
         Ok(r)
+    }
+
+    /// Read `string` field, length delimited
+    pub fn read_string_into_yyp(&mut self, target: &mut String) -> ProtobufResult<()> {
+        target.clear();
+        // take target's buffer
+        let mut vec = mem::replace(target, String::new()).into_bytes();
+        // self.read_bytes_into(&mut vec)?;
+        let len = self.read_raw_little_endian16()?;
+        self.read_raw_bytes_into(len as u32, &mut vec)?;
+
+        let s = match String::from_utf8(vec) {
+            Ok(t) => t,
+            Err(_) => return Err(ProtobufError::WireError(WireError::Utf8Error)),
+        };
+        *target = s;
+        Ok(())
     }
 
     /// Read `string` field, length delimited
@@ -907,9 +1005,21 @@ impl<'a> CodedOutputStream<'a> {
     }
 
     /// Write `float` field
+    pub fn write_float_yyp(&mut self, value: f32) -> ProtobufResult<()> {
+        self.write_float_no_tag(value)?;
+        Ok(())
+    }
+
+    /// Write `float` field
     pub fn write_float(&mut self, field_number: u32, value: f32) -> ProtobufResult<()> {
         self.write_tag(field_number, wire_format::WireTypeFixed32)?;
         self.write_float_no_tag(value)?;
+        Ok(())
+    }
+
+    /// Write `double` field
+    pub fn write_double_yyp(&mut self, value: f64) -> ProtobufResult<()> {
+        self.write_double_no_tag(value)?;
         Ok(())
     }
 
@@ -921,8 +1031,18 @@ impl<'a> CodedOutputStream<'a> {
     }
 
     /// Write varint
+    pub fn write_uint64_no_tag_yyp(&mut self, value: u64) -> ProtobufResult<()> {
+        self.write_raw_little_endian64(value)
+    }
+
+    /// Write varint
     pub fn write_uint64_no_tag(&mut self, value: u64) -> ProtobufResult<()> {
         self.write_raw_varint64(value)
+    }
+
+    /// Write varint
+    pub fn write_uint32_no_tag_yyp(&mut self, value: u32) -> ProtobufResult<()> {
+        self.write_raw_little_endian32(value)
     }
 
     /// Write varint
@@ -931,8 +1051,18 @@ impl<'a> CodedOutputStream<'a> {
     }
 
     /// Write varint
+    pub fn write_int64_no_tag_yyp(&mut self, value: i64) -> ProtobufResult<()> {
+        self.write_raw_little_endian64(value as u64)
+    }
+
+    /// Write varint
     pub fn write_int64_no_tag(&mut self, value: i64) -> ProtobufResult<()> {
         self.write_raw_varint64(value as u64)
+    }
+
+    /// Write varint
+    pub fn write_int32_no_tag_yyp(&mut self, value: i32) -> ProtobufResult<()> {
+        self.write_raw_little_endian32(value as u32)
     }
 
     /// Write varint
@@ -971,8 +1101,18 @@ impl<'a> CodedOutputStream<'a> {
     }
 
     /// Write `bool`
+    pub fn write_bool_no_tag_yyp(&mut self, value: bool) -> ProtobufResult<()> {
+        self.write_raw_little_endian32(if value { 1 } else { 0 })
+    }
+
+    /// Write `bool`
     pub fn write_bool_no_tag(&mut self, value: bool) -> ProtobufResult<()> {
         self.write_raw_varint32(if value { 1 } else { 0 })
+    }
+
+    /// Write `enum`
+    pub fn write_enum_no_tag_yyp(&mut self, value: i32) -> ProtobufResult<()> {
+        self.write_int32_no_tag_yyp(value)
     }
 
     /// Write `enum`
@@ -981,11 +1121,30 @@ impl<'a> CodedOutputStream<'a> {
     }
 
     /// Write `enum`
+    pub fn write_enum_obj_no_tag_yyp<E>(&mut self, value: E) -> ProtobufResult<()>
+    where
+        E: ProtobufEnum,
+    {
+        self.write_enum_no_tag_yyp(value.value())
+    }
+
+    /// Write `enum`
     pub fn write_enum_obj_no_tag<E>(&mut self, value: E) -> ProtobufResult<()>
     where
         E: ProtobufEnum,
     {
         self.write_enum_no_tag(value.value())
+    }
+
+    /// Write `enum`
+    pub fn write_enum_or_unknown_no_tag_yyp<E>(
+        &mut self,
+        value: ProtobufEnumOrUnknown<E>,
+    ) -> ProtobufResult<()>
+    where
+        E: ProtobufEnum,
+    {
+        self.write_enum_no_tag_yyp(value.value())
     }
 
     /// Write `enum`
@@ -1010,9 +1169,21 @@ impl<'a> CodedOutputStream<'a> {
     }
 
     /// Write `uint64` field
+    pub fn write_uint64_yyp(&mut self, value: u64) -> ProtobufResult<()> {
+        self.write_uint64_no_tag_yyp(value)?;
+        Ok(())
+    }
+
+    /// Write `uint64` field
     pub fn write_uint64(&mut self, field_number: u32, value: u64) -> ProtobufResult<()> {
         self.write_tag(field_number, wire_format::WireTypeVarint)?;
         self.write_uint64_no_tag(value)?;
+        Ok(())
+    }
+
+    /// Write `uint32` field
+    pub fn write_uint32_yyp(&mut self, value: u32) -> ProtobufResult<()> {
+        self.write_uint32_no_tag_yyp(value)?;
         Ok(())
     }
 
@@ -1024,9 +1195,21 @@ impl<'a> CodedOutputStream<'a> {
     }
 
     /// Write `int64` field
+    pub fn write_int64_yyp(&mut self, value: i64) -> ProtobufResult<()> {
+        self.write_int64_no_tag_yyp(value)?;
+        Ok(())
+    }
+
+    /// Write `int64` field
     pub fn write_int64(&mut self, field_number: u32, value: i64) -> ProtobufResult<()> {
         self.write_tag(field_number, wire_format::WireTypeVarint)?;
         self.write_int64_no_tag(value)?;
+        Ok(())
+    }
+
+    /// Write `int32` field
+    pub fn write_int32_yyp(&mut self, value: i32) -> ProtobufResult<()> {
+        self.write_int32_no_tag(value)?;
         Ok(())
     }
 
@@ -1087,10 +1270,24 @@ impl<'a> CodedOutputStream<'a> {
     }
 
     /// Write `enum` field
+    pub fn write_enum_yyp(&mut self, value: i32) -> ProtobufResult<()> {
+        self.write_enum_no_tag_yyp(value)?;
+        Ok(())
+    }
+
+    /// Write `enum` field
     pub fn write_enum(&mut self, field_number: u32, value: i32) -> ProtobufResult<()> {
         self.write_tag(field_number, wire_format::WireTypeVarint)?;
         self.write_enum_no_tag(value)?;
         Ok(())
+    }
+
+    /// Write `enum` field
+    pub fn write_enum_obj_yyp<E>(&mut self, value: E) -> ProtobufResult<()>
+    where
+        E: ProtobufEnum,
+    {
+        self.write_enum_yyp(value.value())
     }
 
     /// Write `enum` field
@@ -1099,6 +1296,17 @@ impl<'a> CodedOutputStream<'a> {
         E: ProtobufEnum,
     {
         self.write_enum(field_number, value.value())
+    }
+
+    /// Write `enum` field
+    pub fn write_enum_or_unknown_yyp<E>(
+        &mut self,
+        value: ProtobufEnumOrUnknown<E>,
+    ) -> ProtobufResult<()>
+    where
+        E: ProtobufEnum,
+    {
+        self.write_enum_yyp(value.value())
     }
 
     /// Write `enum` field
@@ -1135,10 +1343,23 @@ impl<'a> CodedOutputStream<'a> {
     }
 
     /// Write bytes
+    pub fn write_bytes_no_tag_yyp(&mut self, bytes: &[u8]) -> ProtobufResult<()> {
+        // self.write_raw_varint32(bytes.len() as u32)?;
+        self.write_raw_little_endian32(bytes.len() as u32)?;
+        self.write_raw_bytes(bytes)?;
+        Ok(())
+    }
+
+    /// Write bytes
     pub fn write_bytes_no_tag(&mut self, bytes: &[u8]) -> ProtobufResult<()> {
         self.write_raw_varint32(bytes.len() as u32)?;
         self.write_raw_bytes(bytes)?;
         Ok(())
+    }
+
+    /// Write string
+    pub fn write_string_no_tag_yyp(&mut self, s: &str) -> ProtobufResult<()> {
+        self.write_bytes_no_tag_yyp(s.as_bytes())
     }
 
     /// Write string
@@ -1152,9 +1373,21 @@ impl<'a> CodedOutputStream<'a> {
     }
 
     /// Write `bytes` field
+    pub fn write_bytes_yyp(&mut self, bytes: &[u8]) -> ProtobufResult<()> {
+        self.write_bytes_no_tag_yyp(bytes)?;
+        Ok(())
+    }
+
+    /// Write `bytes` field
     pub fn write_bytes(&mut self, field_number: u32, bytes: &[u8]) -> ProtobufResult<()> {
         self.write_tag(field_number, wire_format::WireTypeLengthDelimited)?;
         self.write_bytes_no_tag(bytes)?;
+        Ok(())
+    }
+
+    /// Write `string` field
+    pub fn write_string_yyp(&mut self, s: &str) -> ProtobufResult<()> {
+        self.write_string_no_tag_yyp(s)?;
         Ok(())
     }
 

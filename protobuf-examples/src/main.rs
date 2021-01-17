@@ -8,8 +8,19 @@ use protobuf::Message;
 use protos::generated_with_native::example::get_response::Status;
 use protos::generated_with_native::example::GetResponse;
 use protos::generated_with_pure::example::GetRequest;
+use protos::generated_with_native::example::file_descriptor;
+use protos::generated_with_native::uri::exts::uri;
 
 fn main() {
+    println!("hello main");
+    println!("uri: {:?}", uri.field_number);
+    println!("yy.uri: {:#?}", file_descriptor()
+             .message_by_package_relative_name("GetRequest").unwrap()
+             .get_proto().options.get_or_default().get_unknown_fields()
+             .get(uri.field_number).unwrap().varint.first().unwrap());
+    println!("yy.uri: {:#?}", GetRequest::descriptor_static()
+             .get_proto().options.get_or_default().get_unknown_fields()
+             .get(uri.field_number).unwrap().varint.first().unwrap());
     // Encode example request
     let mut out_msg = GetRequest::new();
     out_msg.name = "John Smith".to_string();

@@ -260,8 +260,17 @@ pub fn enum_or_unknown_size<E: ProtobufEnum>(
     tag_size(field_number) + enum_or_unknown_size_no_tag(value)
 }
 
+fn bytes_size_no_tag_yyp(bytes: &[u8]) -> u32 {
+    4 +  bytes.len() as u32
+}
+
 fn bytes_size_no_tag(bytes: &[u8]) -> u32 {
     compute_raw_varint64_size(bytes.len() as u64) + bytes.len() as u32
+}
+
+/// Size of encoded bytes field.
+pub fn bytes_size_yyp(field_number: u32, bytes: &[u8]) -> u32 {
+    bytes_size_no_tag(bytes)
 }
 
 /// Size of encoded bytes field.
@@ -269,8 +278,17 @@ pub fn bytes_size(field_number: u32, bytes: &[u8]) -> u32 {
     tag_size(field_number) + bytes_size_no_tag(bytes)
 }
 
+fn string_size_no_tag_yyp(s: &str) -> u32 {
+    2 +  s.as_bytes().len() as u32
+}
+
 fn string_size_no_tag(s: &str) -> u32 {
     bytes_size_no_tag(s.as_bytes())
+}
+
+/// Size of encoded string field.
+pub fn string_size_yyp(s: &str) -> u32 {
+    string_size_no_tag_yyp(s)
 }
 
 /// Size of encoded string field.
@@ -659,6 +677,26 @@ pub fn read_proto2_enum_with_unknown_fields_into<E: ProtobufEnum>(
 }
 
 /// Read repeated `string` field into given vec.
+pub fn read_repeated_string_into_yyp(
+    is: &mut CodedInputStream,
+    target: &mut Vec<String>,
+) -> ProtobufResult<()> {
+    // TODO(brianjcj)
+    let len = is.read_raw_little_endian32()?;
+    for _ in 0..len {
+        target.push(is.read_string_yyp()?);
+    }
+    Ok(())
+    // match wire_type {
+    //     WireTypeLengthDelimited => {
+    //         target.push(is.read_string()?);
+    //         Ok(())
+    //     }
+    //     _ => Err(unexpected_wire_type(wire_type)),
+    // }
+}
+
+/// Read repeated `string` field into given vec.
 pub fn read_repeated_string_into(
     wire_type: WireType,
     is: &mut CodedInputStream,
@@ -998,4 +1036,36 @@ where
     target.insert(key, value);
 
     Ok(())
+}
+
+/// double size for yyp
+pub fn double_size_yyp<T: ProtobufVarint>(_value: T, _wt: WireType) -> u32 {
+    8
+}
+
+/// float size for yyp
+pub fn float_size_yyp<T: ProtobufVarint>(_value: T, _wt: WireType) -> u32 {
+    4
+}
+/// int32 size for yyp
+pub fn int32_size_yyp<T: ProtobufVarint>(_value: T, _wt: WireType) -> u32 {
+    4
+}
+
+/// int64 size for yyp
+pub fn int64_size_yyp<T: ProtobufVarint>(_value: T, _wt: WireType) -> u32 {
+    4
+}
+/// uint32 size for yyp
+pub fn uint32_size_yyp<T: ProtobufVarint>(_value: T, _wt: WireType) -> u32 {
+    4
+}
+/// uint64 size for yyp
+pub fn uint64_size_yyp<T: ProtobufVarint>(_value: T, _wt: WireType) -> u32 {
+    8
+}
+
+/// enum size for yyp
+pub fn enum_size_yyp<T: ProtobufVarint>(_value: T, _wt: WireType) -> u32 {
+    4
 }

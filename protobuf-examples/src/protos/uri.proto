@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package yyp;
+
+import "google/protobuf/descriptor.proto";
+
+extend google.protobuf.MessageOptions {
+  uint32 uri = 1001;
+}
+
+extend google.protobuf.MethodOptions {
+  uint32 stream_request_uri = 10001;
+  uint32 stream_respone_uri = 10002;
+}

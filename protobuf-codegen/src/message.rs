@@ -232,6 +232,30 @@ impl<'a> MessageGen<'a> {
         }
     }
 
+    fn write_write_to_with_cached_sizes_yyp(&self, w: &mut CodeWriter) {
+        let sig = format!(
+            "write_to_with_cached_sizes(&self, os: &mut {}::CodedOutputStream<'_>) -> {}::ProtobufResult<()>",
+            protobuf_crate_path(&self.customize),
+            protobuf_crate_path(&self.customize),
+        );
+        w.def_fn(&sig, |w| {
+            // To have access to its methods but not polute the name space.
+            for f in self.fields_except_oneof_and_group() {
+                // w.comment(&format!("{:?}, {:?}", f.proto_type, f.rust_name));
+                f.write_message_write_field_yyp(w);
+            }
+            // self.write_match_each_oneof_variant(w, |w, variant, v, v_type| {
+            //     let v = RustValueTyped {
+            //         value: v.to_owned(),
+            //         rust_type: v_type.clone(),
+            //     };
+            //     variant.field.write_write_element(w, "os", &v);
+            // });
+            // w.write_line("os.write_unknown_fields(self.get_unknown_fields())?;");
+            w.write_line("::std::result::Result::Ok(())");
+        });
+    }
+
     fn write_write_to_with_cached_sizes(&self, w: &mut CodeWriter) {
         let sig = format!(
             "write_to_with_cached_sizes(&self, os: &mut {}::CodedOutputStream<'_>) -> {}::ProtobufResult<()>",
@@ -320,6 +344,31 @@ impl<'a> MessageGen<'a> {
         );
     }
 
+    fn write_compute_size_yyp(&self, w: &mut CodeWriter) {
+        // Append sizes of messages in the tree to the specified vector.
+        // First appended element is size of self, and then nested message sizes.
+        // in serialization order are appended recursively.");
+        w.comment("Compute sizes of nested messages");
+        // there are unused variables in oneof
+        w.allow(&["unused_variables"]);
+        w.def_fn("compute_size(&self) -> u32", |w| {
+            // To have access to its methods but not polute the name space.
+            w.write_line("let mut my_size = 0;");
+            for field in self.fields_except_oneof_and_group() {
+                field.write_message_compute_field_size_yyp("my_size", w);
+            }
+            // self.write_match_each_oneof_variant(w, |w, variant, v, vtype| {
+            //     variant.field.write_element_size(w, v, vtype, "my_size");
+            // });
+            // w.write_line(&format!(
+            //     "my_size += {}::rt::unknown_fields_size(self.get_unknown_fields());",
+            //     protobuf_crate_path(&self.customize)
+            // ));
+            w.write_line("self.cached_size.set(my_size);");
+            w.write_line("my_size");
+        });
+    }
+
     fn write_compute_size(&self, w: &mut CodeWriter) {
         // Append sizes of messages in the tree to the specified vector.
         // First appended element is size of self, and then nested message sizes.
@@ -379,6 +428,22 @@ impl<'a> MessageGen<'a> {
         );
         w.def_fn(&sig, |w| {
             w.write_line("&mut self.unknown_fields");
+        });
+    }
+
+    fn write_merge_from_yyp(&self, w: &mut CodeWriter) {
+        let sig = format!(
+            "merge_from(&mut self, is: &mut {}::CodedInputStream<'_>) -> {}::ProtobufResult<()>",
+            protobuf_crate_path(&self.customize),
+            protobuf_crate_path(&self.customize),
+        );
+        w.def_fn(&sig, |w| {
+            w.while_block("!is.eof()?", |w| {
+                for f in &self.fields_except_group() {
+                    f.write_merge_from_field_yyp("wire_type", w);
+                }
+            });
+            w.write_line("::std::result::Result::Ok(())");
         });
     }
 
@@ -482,6 +547,37 @@ impl<'a> MessageGen<'a> {
             }
             w.write_line("true");
         });
+    }
+
+
+    fn write_impl_yypmessage(&self, w: &mut CodeWriter) {
+        w.impl_for_block(
+            &format!("{}::YYPMessage", protobuf_crate_path(&self.customize)),
+            &format!("{}", self.type_name),
+            |w| {
+                self.write_is_initialized(w);
+                w.write_line("");
+                self.write_merge_from_yyp(w);
+                w.write_line("");
+                self.write_compute_size_yyp(w);
+                w.write_line("");
+                self.write_write_to_with_cached_sizes_yyp(w);
+                w.write_line("");
+                self.write_get_cached_size(w);
+                w.write_line("");
+                self.write_unknown_fields(w);
+                w.write_line("");
+                w.def_fn(&format!("new() -> {}", self.type_name), |w| {
+                    w.write_line(&format!("{}::new()", self.type_name));
+                });
+                if !self.lite_runtime {
+                    w.write_line("");
+                    self.write_descriptor_static_new(w);
+                }
+                w.write_line("");
+                self.write_default_instance(w);
+            },
+        );
     }
 
     fn write_impl_message(&self, w: &mut CodeWriter) {
@@ -656,6 +752,8 @@ impl<'a> MessageGen<'a> {
 
         w.write_line("");
         self.write_impl_self(w);
+        w.write_line("");
+        self.write_impl_yypmessage(w);
         w.write_line("");
         self.write_impl_message(w);
         w.write_line("");

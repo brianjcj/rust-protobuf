@@ -35,6 +35,7 @@ fn main() {
         })
         .out_dir(generated_with_pure_dir)
         .input("src/protos/example.proto")
+        .input("src/protos/uri.proto")
         .include("src/protos")
         .run()
         .expect("protoc");
@@ -46,6 +47,7 @@ fn main() {
         })
         .out_dir(generated_with_native_dir)
         .input("src/protos/example.proto")
+        .input("src/protos/uri.proto")
         .include("src/protos")
         .run()
         .expect("protoc");
