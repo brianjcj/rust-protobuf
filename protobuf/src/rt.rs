@@ -16,6 +16,7 @@ use crate::error::ProtobufError;
 use crate::error::ProtobufResult;
 use crate::error::WireError;
 use crate::message::*;
+use crate::yyp::YYPMessage;
 use crate::reflect::types::*;
 use crate::stream::CodedInputStream;
 use crate::stream::CodedOutputStream;
@@ -260,16 +261,12 @@ pub fn enum_or_unknown_size<E: ProtobufEnum>(
     tag_size(field_number) + enum_or_unknown_size_no_tag(value)
 }
 
-fn bytes_size_no_tag_yyp(bytes: &[u8]) -> u32 {
-    4 +  bytes.len() as u32
-}
-
 fn bytes_size_no_tag(bytes: &[u8]) -> u32 {
     compute_raw_varint64_size(bytes.len() as u64) + bytes.len() as u32
 }
 
 /// Size of encoded bytes field.
-pub fn bytes_size_yyp(field_number: u32, bytes: &[u8]) -> u32 {
+pub fn bytes_size_yyp(bytes: &[u8]) -> u32 {
     bytes_size_no_tag(bytes)
 }
 
@@ -317,6 +314,18 @@ pub fn unknown_fields_size(unknown_fields: &UnknownFields) -> u32 {
 }
 
 /// Read repeated `int32` field into given vec.
+pub fn read_repeated_int32_into_yyp(
+    is: &mut CodedInputStream,
+    target: &mut Vec<i32>,
+) -> ProtobufResult<()> {
+    let len = is.read_raw_little_endian32()?;
+    for _ in 0..len {
+        target.push(is.read_int32_yyp()?);
+    }
+    Ok(())
+}
+
+/// Read repeated `int32` field into given vec.
 pub fn read_repeated_int32_into(
     wire_type: WireType,
     is: &mut CodedInputStream,
@@ -330,6 +339,18 @@ pub fn read_repeated_int32_into(
         }
         _ => Err(unexpected_wire_type(wire_type)),
     }
+}
+
+/// Read repeated `int64` field into given vec.
+pub fn read_repeated_int64_into_yyp(
+    is: &mut CodedInputStream,
+    target: &mut Vec<i64>,
+) -> ProtobufResult<()> {
+    let len = is.read_raw_little_endian32()?;
+    for _ in 0..len {
+        target.push(is.read_int64_yyp()?);
+    }
+    Ok(())
 }
 
 /// Read repeated `int64` field into given vec.
@@ -349,6 +370,18 @@ pub fn read_repeated_int64_into(
 }
 
 /// Read repeated `uint32` field into given vec.
+pub fn read_repeated_uint32_into_yyp(
+    is: &mut CodedInputStream,
+    target: &mut Vec<u32>,
+) -> ProtobufResult<()> {
+    let len = is.read_raw_little_endian32()?;
+    for _ in 0..len {
+        target.push(is.read_uint32_yyp()?);
+    }
+    Ok(())
+}
+
+/// Read repeated `uint32` field into given vec.
 pub fn read_repeated_uint32_into(
     wire_type: WireType,
     is: &mut CodedInputStream,
@@ -362,6 +395,18 @@ pub fn read_repeated_uint32_into(
         }
         _ => Err(unexpected_wire_type(wire_type)),
     }
+}
+
+/// Read repeated `uint64` field into given vec.
+pub fn read_repeated_uint64_into_yyp(
+    is: &mut CodedInputStream,
+    target: &mut Vec<u64>,
+) -> ProtobufResult<()> {
+    let len = is.read_raw_little_endian32()?;
+    for _ in 0..len {
+        target.push(is.read_uint64_yyp()?);
+    }
+    Ok(())
 }
 
 /// Read repeated `uint64` field into given vec.
@@ -477,6 +522,18 @@ pub fn read_repeated_sfixed64_into(
 }
 
 /// Read repeated `double` field into given vec.
+pub fn read_repeated_double_into_yyp(
+    is: &mut CodedInputStream,
+    target: &mut Vec<f64>,
+) -> ProtobufResult<()> {
+    let len = is.read_raw_little_endian32()?;
+    for _ in 0..len {
+        target.push(is.read_double_yyp()?);
+    }
+    Ok(())
+}
+
+/// Read repeated `double` field into given vec.
 pub fn read_repeated_double_into(
     wire_type: WireType,
     is: &mut CodedInputStream,
@@ -490,6 +547,18 @@ pub fn read_repeated_double_into(
         }
         _ => Err(unexpected_wire_type(wire_type)),
     }
+}
+
+/// Read repeated `float` field into given vec.
+pub fn read_repeated_float_into_yyp(
+    is: &mut CodedInputStream,
+    target: &mut Vec<f32>,
+) -> ProtobufResult<()> {
+    let len = is.read_raw_little_endian32()?;
+    for _ in 0..len {
+        target.push(is.read_float_yyp()?);
+    }
+    Ok(())
 }
 
 /// Read repeated `float` field into given vec.
@@ -509,6 +578,18 @@ pub fn read_repeated_float_into(
 }
 
 /// Read repeated `bool` field into given vec.
+pub fn read_repeated_bool_into_yyp(
+    is: &mut CodedInputStream,
+    target: &mut Vec<bool>,
+) -> ProtobufResult<()> {
+    let len = is.read_raw_little_endian32()?;
+    for _ in 0..len {
+        target.push(is.read_bool_yyp()?);
+    }
+    Ok(())
+}
+
+/// Read repeated `bool` field into given vec.
 pub fn read_repeated_bool_into(
     wire_type: WireType,
     is: &mut CodedInputStream,
@@ -522,6 +603,19 @@ pub fn read_repeated_bool_into(
         }
         _ => Err(unexpected_wire_type(wire_type)),
     }
+}
+
+/// Read repeated `enum` field into given vec.
+/// This function is no longer called from generated code, remove in 1.5.
+pub fn read_repeated_enum_into_yyp<E: ProtobufEnum + ProtobufValue>(
+    is: &mut CodedInputStream,
+    target: &mut Vec<E>,
+) -> ProtobufResult<()> {
+    let len = is.read_raw_little_endian32()?;
+    for _ in 0..len {
+        target.push(is.read_enum_yyp()?);
+    }
+    Ok(())
 }
 
 /// Read repeated `enum` field into given vec.
@@ -621,6 +715,23 @@ pub fn read_repeated_enum_with_unknown_fields_into<E: ProtobufEnum>(
 ///
 /// See explanation
 /// [here](https://github.com/stepancheg/rust-protobuf/issues/233#issuecomment-375142710)
+pub fn read_repeated_enum_or_unknown_into_yyp<E: ProtobufEnum>(
+    is: &mut CodedInputStream,
+    target: &mut Vec<ProtobufEnumOrUnknown<E>>,
+) -> ProtobufResult<()> {
+    let len = is.read_raw_little_endian32()?;
+    for _ in 0..len {
+        target.push(is.read_enum_or_unknown_yyp()?);
+    }
+    Ok(())
+}
+
+/// Read repeated `enum` field into given vec,
+/// and when value is unknown store it in unknown fields
+/// which matches proto2 spec.
+///
+/// See explanation
+/// [here](https://github.com/stepancheg/rust-protobuf/issues/233#issuecomment-375142710)
 pub fn read_repeated_enum_or_unknown_into<E: ProtobufEnum>(
     wire_type: WireType,
     is: &mut CodedInputStream,
@@ -681,19 +792,11 @@ pub fn read_repeated_string_into_yyp(
     is: &mut CodedInputStream,
     target: &mut Vec<String>,
 ) -> ProtobufResult<()> {
-    // TODO(brianjcj)
     let len = is.read_raw_little_endian32()?;
     for _ in 0..len {
         target.push(is.read_string_yyp()?);
     }
     Ok(())
-    // match wire_type {
-    //     WireTypeLengthDelimited => {
-    //         target.push(is.read_string()?);
-    //         Ok(())
-    //     }
-    //     _ => Err(unexpected_wire_type(wire_type)),
-    // }
 }
 
 /// Read repeated `string` field into given vec.
@@ -772,6 +875,18 @@ pub fn read_singular_proto3_carllerche_string_into(
 }
 
 /// Read repeated `bytes` field into given vec.
+pub fn read_repeated_bytes_into_yyp(
+    is: &mut CodedInputStream,
+    target: &mut Vec<Vec<u8>>,
+) -> ProtobufResult<()> {
+    let len = is.read_raw_little_endian32()?;
+    for _ in 0..len {
+        target.push(is.read_bytes_yyp()?);
+    }
+    Ok(())
+}
+
+/// Read repeated `bytes` field into given vec.
 pub fn read_repeated_bytes_into(
     wire_type: WireType,
     is: &mut CodedInputStream,
@@ -847,6 +962,29 @@ pub fn read_singular_proto3_carllerche_bytes_into(
 }
 
 /// Read repeated `message` field.
+pub fn read_repeated_message_into_vec_yyp<M: YYPMessage + Default>(
+    is: &mut CodedInputStream,
+    target: &mut Vec<M>,
+) -> ProtobufResult<()> {
+    // TODO(brianjcj)
+    let len = is.read_raw_little_endian32()?;
+    for _ in 0..len {
+        is.incr_recursion()?;
+        match is.read_message_yyp() {
+            Ok(m) => {
+                target.push(m);
+            }
+            Err(e) => {
+                is.decr_recursion();
+                return Err(e);
+            }
+        };
+        is.decr_recursion();
+    }
+    Ok(())  // TODO(brianjcj): return error
+}
+
+/// Read repeated `message` field.
 pub fn read_repeated_message_into_vec<M: Message + Default>(
     wire_type: WireType,
     is: &mut CodedInputStream,
@@ -867,6 +1005,22 @@ pub fn read_repeated_message_into_vec<M: Message + Default>(
         }
         _ => Err(unexpected_wire_type(wire_type)),
     }
+}
+
+/// Read singular `message` field.
+pub fn read_singular_message_into_field_yyp<M>(
+    is: &mut CodedInputStream,
+    target: &mut MessageField<M>,
+) -> ProtobufResult<()>
+where
+    M: YYPMessage + Default,
+{
+    is.incr_recursion()?;
+    let mut m = M::new();
+    let res = is.merge_message_yyp(&mut m);
+    *target = MessageField::some(m);
+    is.decr_recursion();
+    res
 }
 
 /// Read singular `message` field.
@@ -928,6 +1082,26 @@ pub fn unexpected_wire_type(wire_type: WireType) -> ProtobufError {
 }
 
 /// Compute serialized size of `map` field and cache nested field sizes.
+pub fn compute_map_size_yyp<K, V>(
+    map: &HashMap<K::ProtobufValue, V::ProtobufValue>,
+) -> u32
+where
+    K: ProtobufType,
+    V: ProtobufType,
+    K::ProtobufValue: Eq + Hash,
+{
+    let mut sum = 4;  // len uint32
+    for (k, v) in map {
+        let key_len = K::compute_size_yyp(k);
+        let value_len = V::compute_size_yyp(v);
+
+        let entry_len = key_len + value_len;
+        sum += entry_len;
+    }
+    sum
+}
+
+/// Compute serialized size of `map` field and cache nested field sizes.
 pub fn compute_map_size<K, V>(
     field_number: u32,
     map: &HashMap<K::ProtobufValue, V::ProtobufValue>,
@@ -980,6 +1154,18 @@ where
 }
 
 /// Write message with field number and length to the stream.
+pub fn write_message_field_with_cached_size_yyp<M>(
+    message: &M,
+    os: &mut CodedOutputStream,
+) -> ProtobufResult<()>
+where
+    M: YYPMessage,
+{
+    os.write_raw_little_endian32(message.get_cached_size())?;
+    message.write_to_with_cached_sizes(os)
+}
+
+/// Write message with field number and length to the stream.
 pub fn write_message_field_with_cached_size<M>(
     field_number: u32,
     message: &M,
@@ -991,6 +1177,29 @@ where
     os.write_tag(field_number, WireType::WireTypeLengthDelimited)?;
     os.write_raw_varint32(message.get_cached_size())?;
     message.write_to_with_cached_sizes(os)
+}
+
+/// Read `map` field.
+pub fn read_map_into_yyp<K, V>(
+    is: &mut CodedInputStream,
+    target: &mut HashMap<K::ProtobufValue, V::ProtobufValue>,
+) -> ProtobufResult<()>
+where
+    K: ProtobufType,
+    V: ProtobufType,
+    K::ProtobufValue: Eq + Hash,
+{
+    // let mut key = Default::default();
+    // let mut value = Default::default();
+
+    let len = is.read_raw_little_endian32()?;
+    for _ in 0..len {
+        let key = K::read_yyp(is)?;
+        let value = V::read_yyp(is)?;
+        target.insert(key, value);
+    }
+
+    Ok(())
 }
 
 /// Read `map` field.
@@ -1036,36 +1245,4 @@ where
     target.insert(key, value);
 
     Ok(())
-}
-
-/// double size for yyp
-pub fn double_size_yyp<T: ProtobufVarint>(_value: T, _wt: WireType) -> u32 {
-    8
-}
-
-/// float size for yyp
-pub fn float_size_yyp<T: ProtobufVarint>(_value: T, _wt: WireType) -> u32 {
-    4
-}
-/// int32 size for yyp
-pub fn int32_size_yyp<T: ProtobufVarint>(_value: T, _wt: WireType) -> u32 {
-    4
-}
-
-/// int64 size for yyp
-pub fn int64_size_yyp<T: ProtobufVarint>(_value: T, _wt: WireType) -> u32 {
-    4
-}
-/// uint32 size for yyp
-pub fn uint32_size_yyp<T: ProtobufVarint>(_value: T, _wt: WireType) -> u32 {
-    4
-}
-/// uint64 size for yyp
-pub fn uint64_size_yyp<T: ProtobufVarint>(_value: T, _wt: WireType) -> u32 {
-    8
-}
-
-/// enum size for yyp
-pub fn enum_size_yyp<T: ProtobufVarint>(_value: T, _wt: WireType) -> u32 {
-    4
 }

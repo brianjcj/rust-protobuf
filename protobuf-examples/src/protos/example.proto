@@ -2,10 +2,47 @@ syntax = "proto3";
 
 import "uri.proto";
 
+enum MyStatus {
+  OK = 0;
+  ERR = 1;
+  NOT_FOUND = 2;
+}
+
+message Bone {
+  string name = 1;
+}
+
+message cat {
+  Bone bone = 1;
+  map<int32, Bone> map1 = 2;
+}
+
+message Dog {
+  int32 num32 = 1;
+  int64 num64 = 2;
+  uint32 numu32 = 3;
+  uint64 numu64 = 4;
+  bytes mydata = 5;
+  MyStatus status = 6;
+  bool right = 7;
+  map<int32, int32> map1 = 8;
+  map<string, string> map2 = 9;
+  map<string, Bone> map3 = 10;
+  double d = 11;
+  float f = 12;
+  Bone bone = 13;
+}
+
 message GetRequest {
   string name = 1;
   int32 age = 2;
   repeated string features = 3;
+  repeated int32 flags = 4;
+  repeated bytes datas = 5;
+  repeated bool facts = 6;
+  repeated MyStatus sss = 7;
+  Dog peg = 8;
+  repeated Dog dogs = 9;
 
   option (yyp.uri) = 1411160;
 }

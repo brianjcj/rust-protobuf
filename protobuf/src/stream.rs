@@ -14,6 +14,7 @@ use crate::error::ProtobufError;
 use crate::error::ProtobufResult;
 use crate::error::WireError;
 use crate::message::Message;
+use crate::yyp::YYPMessage;
 use crate::misc::remaining_capacity_as_slice_mut;
 use crate::misc::remove_lifetime_mut;
 use crate::unknown::UnknownFields;
@@ -727,12 +728,27 @@ impl<'a> CodedInputStream<'a> {
     }
 
     /// Read message, do not check if message is initialized
+    pub fn merge_message_yyp<M: YYPMessage>(&mut self, message: &mut M) -> ProtobufResult<()> {
+        message.merge_from(self)?;
+        Ok(())
+    }
+
+    /// Read message, do not check if message is initialized
     pub fn merge_message<M: Message>(&mut self, message: &mut M) -> ProtobufResult<()> {
         let len = self.read_raw_varint64()?;
         let old_limit = self.push_limit(len)?;
         message.merge_from(self)?;
         self.pop_limit(old_limit);
         Ok(())
+    }
+
+
+    /// Read message
+    pub fn read_message_yyp<M: YYPMessage>(&mut self) -> ProtobufResult<M> {
+        let mut r: M = YYPMessage::new();
+        self.merge_message_yyp(&mut r)?;
+        r.check_initialized()?;
+        Ok(r)
     }
 
     /// Read message
@@ -1259,6 +1275,12 @@ impl<'a> CodedOutputStream<'a> {
     pub fn write_sfixed32(&mut self, field_number: u32, value: i32) -> ProtobufResult<()> {
         self.write_tag(field_number, wire_format::WireTypeFixed32)?;
         self.write_sfixed32_no_tag(value)?;
+        Ok(())
+    }
+
+    /// Write `bool` field
+    pub fn write_bool_yyp(&mut self, value: bool) -> ProtobufResult<()> {
+        self.write_bool_no_tag_yyp(value)?;
         Ok(())
     }
 

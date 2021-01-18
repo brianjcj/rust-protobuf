@@ -12,8 +12,9 @@ use crate::chars::Chars;
 
 use crate::enums::ProtobufEnum;
 use crate::enums::ProtobufEnumOrUnknown;
-use crate::error::ProtobufResult;
+use crate::error::{ProtobufResult, ProtobufError};
 use crate::message::Message;
+use crate::yyp::YYPMessage;
 use crate::reflect::type_dynamic::ProtobufTypeDynamicImpl;
 use crate::reflect::ProtobufValue;
 use crate::rt;
@@ -43,10 +44,20 @@ pub trait ProtobufType: Send + Sync + Clone + 'static {
     const WIRE_TYPE: WireType;
 
     /// Read a value from `CodedInputStream`
+    fn read_yyp(_is: &mut CodedInputStream) -> ProtobufResult<Self::ProtobufValue> {
+        Err(ProtobufError::MessageNotInitialized("not implemented".to_string()))
+    }
+
+    /// Read a value from `CodedInputStream`
     fn read(is: &mut CodedInputStream) -> ProtobufResult<Self::ProtobufValue>;
 
     /// Take a value from `UnknownValues`
     fn get_from_unknown(_unknown_values: &UnknownValues) -> Option<Self::ProtobufValue>;
+
+    /// Compute serialized size of a value
+    fn compute_size_yyp(value: &Self::ProtobufValue) -> u32 {
+        Self::compute_size(value)
+    }
 
     /// Compute serialized size of a value
     fn compute_size(value: &Self::ProtobufValue) -> u32;
@@ -159,11 +170,18 @@ pub struct ProtobufTypeEnumOrUnknown<E: ProtobufEnum>(marker::PhantomData<E>);
 /// `message`
 #[derive(Copy, Clone)]
 pub struct ProtobufTypeMessage<M: Message>(marker::PhantomData<M>);
+/// `yypmessage`
+#[derive(Copy, Clone)]
+pub struct ProtobufTypeYYPMessage<M: YYPMessage>(marker::PhantomData<M>);
 
 impl ProtobufType for ProtobufTypeFloat {
     type ProtobufValue = f32;
 
     const WIRE_TYPE: WireType = WireType::WireTypeFixed32;
+
+    fn read_yyp(is: &mut CodedInputStream) -> ProtobufResult<f32> {
+        is.read_float_yyp()
+    }
 
     fn read(is: &mut CodedInputStream) -> ProtobufResult<f32> {
         is.read_float()
@@ -200,6 +218,10 @@ impl ProtobufType for ProtobufTypeDouble {
 
     const WIRE_TYPE: WireType = WireType::WireTypeFixed64;
 
+    fn read_yyp(is: &mut CodedInputStream) -> ProtobufResult<f64> {
+        is.read_double_yyp()
+    }
+
     fn read(is: &mut CodedInputStream) -> ProtobufResult<f64> {
         is.read_double()
     }
@@ -235,8 +257,16 @@ impl ProtobufType for ProtobufTypeInt32 {
 
     const WIRE_TYPE: WireType = WireType::WireTypeVarint;
 
+    fn read_yyp(is: &mut CodedInputStream) -> ProtobufResult<i32> {
+        is.read_int32_yyp()
+    }
+
     fn read(is: &mut CodedInputStream) -> ProtobufResult<i32> {
         is.read_int32()
+    }
+
+    fn compute_size_yyp(_value: &i32) -> u32 {
+        4
     }
 
     fn compute_size(value: &i32) -> u32 {
@@ -265,12 +295,20 @@ impl ProtobufType for ProtobufTypeInt64 {
 
     const WIRE_TYPE: WireType = WireType::WireTypeVarint;
 
+    fn read_yyp(is: &mut CodedInputStream) -> ProtobufResult<i64> {
+        is.read_int64_yyp()
+    }
+
     fn read(is: &mut CodedInputStream) -> ProtobufResult<i64> {
         is.read_int64()
     }
 
     fn get_from_unknown(unknown_values: &UnknownValues) -> Option<i64> {
         unknown_values.varint.iter().rev().next().map(|&v| v as i64)
+    }
+
+    fn compute_size_yyp(_value: &i64) -> u32 {
+        8
     }
 
     fn compute_size(value: &i64) -> u32 {
@@ -291,12 +329,20 @@ impl ProtobufType for ProtobufTypeUint32 {
 
     const WIRE_TYPE: WireType = WireType::WireTypeVarint;
 
+    fn read_yyp(is: &mut CodedInputStream) -> ProtobufResult<u32> {
+        is.read_uint32_yyp()
+    }
+
     fn read(is: &mut CodedInputStream) -> ProtobufResult<u32> {
         is.read_uint32()
     }
 
     fn get_from_unknown(unknown_values: &UnknownValues) -> Option<u32> {
         unknown_values.varint.iter().rev().next().map(|&v| v as u32)
+    }
+
+    fn compute_size_yyp(_value: &u32) -> u32 {
+        4
     }
 
     fn compute_size(value: &u32) -> u32 {
@@ -317,12 +363,20 @@ impl ProtobufType for ProtobufTypeUint64 {
 
     const WIRE_TYPE: WireType = WireType::WireTypeVarint;
 
+    fn read_yyp(is: &mut CodedInputStream) -> ProtobufResult<u64> {
+        is.read_uint64_yyp()
+    }
+
     fn read(is: &mut CodedInputStream) -> ProtobufResult<u64> {
         is.read_uint64()
     }
 
     fn get_from_unknown(unknown_values: &UnknownValues) -> Option<u64> {
         unknown_values.varint.iter().cloned().rev().next()
+    }
+
+    fn compute_size_yyp(_value: &u64) -> u32 {
+        8
     }
 
     fn compute_size(value: &u64) -> u32 {
@@ -515,6 +569,10 @@ impl ProtobufType for ProtobufTypeBool {
 
     const WIRE_TYPE: WireType = WireType::WireTypeVarint;
 
+    fn read_yyp(is: &mut CodedInputStream) -> ProtobufResult<bool> {
+        is.read_bool_yyp()
+    }
+
     fn read(is: &mut CodedInputStream) -> ProtobufResult<bool> {
         is.read_bool()
     }
@@ -540,6 +598,10 @@ impl ProtobufType for ProtobufTypeString {
     type ProtobufValue = String;
 
     const WIRE_TYPE: WireType = WireType::WireTypeLengthDelimited;
+
+    fn read_yyp(is: &mut CodedInputStream) -> ProtobufResult<String> {
+        is.read_string_yyp()
+    }
 
     fn read(is: &mut CodedInputStream) -> ProtobufResult<String> {
         is.read_string()
@@ -568,6 +630,10 @@ impl ProtobufType for ProtobufTypeBytes {
     type ProtobufValue = Vec<u8>;
 
     const WIRE_TYPE: WireType = WireType::WireTypeLengthDelimited;
+
+    fn read_yyp(is: &mut CodedInputStream) -> ProtobufResult<Vec<u8>> {
+        is.read_bytes_yyp()
+    }
 
     fn read(is: &mut CodedInputStream) -> ProtobufResult<Vec<u8>> {
         is.read_bytes()
@@ -659,6 +725,10 @@ impl<E: ProtobufEnum + ProtobufValue + fmt::Debug> ProtobufType for ProtobufType
             .map(|i| E::from_i32(i).expect("not a valid enum value"))
     }
 
+    fn compute_size_yyp(_value: &E) -> u32 {
+        4
+    }
+
     fn compute_size(value: &E) -> u32 {
         rt::compute_raw_varint32_size(value.value() as u32) // TODO: wrap
     }
@@ -684,6 +754,10 @@ impl<E: ProtobufEnum + ProtobufValue + fmt::Debug> ProtobufType for ProtobufType
     fn get_from_unknown(unknown_values: &UnknownValues) -> Option<ProtobufEnumOrUnknown<E>> {
         ProtobufTypeInt32::get_from_unknown(unknown_values)
             .map(|i| ProtobufEnumOrUnknown::from_i32(i))
+    }
+
+    fn compute_size_yyp(_value: &ProtobufEnumOrUnknown<E>) -> u32 {
+        4
     }
 
     fn compute_size(value: &ProtobufEnumOrUnknown<E>) -> u32 {
@@ -718,11 +792,19 @@ impl<M: Message + Clone + ProtobufValue + Default> ProtobufType for ProtobufType
             .map(|bytes| M::parse_from_bytes(bytes).expect("cannot parse message"))
     }
 
+    fn compute_size_yyp(value: &M) -> u32 {
+        println!("=======Message get_cached_size called!======");
+        // panic!("not implemented");
+        // YYPMessage::compute_size(value as &dyn YYPMessage)
+        1000
+    }
+
     fn compute_size(value: &M) -> u32 {
         value.compute_size()
     }
 
     fn get_cached_size(value: &M) -> u32 {
+        println!("=======Message get_cached_size called!======");
         value.get_cached_size()
     }
 
@@ -731,8 +813,55 @@ impl<M: Message + Clone + ProtobufValue + Default> ProtobufType for ProtobufType
         value: &Self::ProtobufValue,
         os: &mut CodedOutputStream,
     ) -> ProtobufResult<()> {
+        println!("=======Message write_with_cached_size called!======");
         os.write_tag(field_number, WireType::WireTypeLengthDelimited)?;
         os.write_raw_varint32(value.get_cached_size())?;
+        value.write_to_with_cached_sizes(os)?;
+        Ok(())
+    }
+}
+
+impl<M: YYPMessage + Clone + ProtobufValue + Default> ProtobufType for ProtobufTypeYYPMessage<M> {
+    type ProtobufValue = M;
+
+    const WIRE_TYPE: WireType = WireType::WireTypeLengthDelimited;
+
+    fn read(is: &mut CodedInputStream) -> ProtobufResult<M> {
+        is.read_message_yyp()
+    }
+
+    fn get_from_unknown(unknown_values: &UnknownValues) -> Option<M> {
+        // TODO: do not panic
+        unknown_values
+            .length_delimited
+            .iter()
+            .rev()
+            .next()
+            .map(|bytes| M::parse_from_bytes(bytes).expect("cannot parse message"))
+    }
+
+    fn compute_size_yyp(value: &M) -> u32 {
+        println!("=======YYPMessage compute_size_yyp called!======");
+        value.compute_size()
+    }
+
+    fn compute_size(value: &M) -> u32 {
+        println!("=======YYPMessage compute_size called!======");
+        value.compute_size()
+    }
+
+    fn get_cached_size(value: &M) -> u32 {
+        println!("=======YYPMessage get_cached_size called!======");
+        value.get_cached_size()
+    }
+
+    fn write_with_cached_size(
+        field_number: u32,
+        value: &Self::ProtobufValue,
+        os: &mut CodedOutputStream,
+    ) -> ProtobufResult<()> {
+        println!("=======YYPMessage write_with_cached_size called!======");
+        os.write_raw_little_endian32(value.get_cached_size())?;
         value.write_to_with_cached_sizes(os)?;
         Ok(())
     }

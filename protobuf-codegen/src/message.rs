@@ -438,11 +438,9 @@ impl<'a> MessageGen<'a> {
             protobuf_crate_path(&self.customize),
         );
         w.def_fn(&sig, |w| {
-            w.while_block("!is.eof()?", |w| {
-                for f in &self.fields_except_group() {
-                    f.write_merge_from_field_yyp("wire_type", w);
-                }
-            });
+            for f in &self.fields_except_group() {
+                f.write_merge_from_field_yyp("wire_type", w);
+            }
             w.write_line("::std::result::Result::Ok(())");
         });
     }
@@ -565,8 +563,8 @@ impl<'a> MessageGen<'a> {
                 w.write_line("");
                 self.write_get_cached_size(w);
                 w.write_line("");
-                self.write_unknown_fields(w);
-                w.write_line("");
+                // self.write_unknown_fields(w);
+                // w.write_line("");
                 w.def_fn(&format!("new() -> {}", self.type_name), |w| {
                     w.write_line(&format!("{}::new()", self.type_name));
                 });

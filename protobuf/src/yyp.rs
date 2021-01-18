@@ -14,7 +14,7 @@ use crate::reflect::MessageDescriptor;
 use crate::stream::CodedInputStream;
 use crate::stream::CodedOutputStream;
 use crate::stream::WithCodedOutputStream;
-use crate::unknown::UnknownFields;
+// use crate::unknown::UnknownFields;
 
 /// Trait implemented for all generated structs for protobuf messages.
 ///
@@ -204,10 +204,10 @@ pub trait YYPMessage: fmt::Debug + Clear + Send + Sync + Sized + 'static {
         Ok(v)
     }
 
-    /// Get a reference to unknown fields.
-    fn get_unknown_fields(&self) -> &UnknownFields;
-    /// Get a mutable reference to unknown fields.
-    fn mut_unknown_fields(&mut self) -> &mut UnknownFields;
+    // /// Get a reference to unknown fields.
+    // fn get_unknown_fields(&self) -> &UnknownFields;
+    // /// Get a mutable reference to unknown fields.
+    // fn mut_unknown_fields(&mut self) -> &mut UnknownFields;
 
     /// Create an empty message object.
     ///

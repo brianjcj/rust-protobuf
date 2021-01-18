@@ -146,6 +146,23 @@ fn field_type_protobuf_name<'a>(field: &'a FieldDescriptorProto) -> &'a str {
 }
 
 // size of value for type, None if variable
+fn field_type_size_yyp(field_type: field_descriptor_proto::Type) -> Option<u32> {
+    match field_type {
+        field_descriptor_proto::Type::TYPE_BOOL => Some(1),
+        field_descriptor_proto::Type::TYPE_DOUBLE => Some(8),
+        field_descriptor_proto::Type::TYPE_FLOAT => Some(4),
+        field_descriptor_proto::Type::TYPE_INT64 => Some(8),
+        field_descriptor_proto::Type::TYPE_UINT64 => Some(8),
+        field_descriptor_proto::Type::TYPE_INT32 => Some(4),
+        field_descriptor_proto::Type::TYPE_UINT32 => Some(4),
+        field_descriptor_proto::Type::TYPE_ENUM => Some(4),
+        t if field_type_wire_type(t) == wire_format::WireTypeFixed32 => Some(4),
+        t if field_type_wire_type(t) == wire_format::WireTypeFixed64 => Some(8),
+        _ => None,
+    }
+}
+
+// size of value for type, None if variable
 fn field_type_size(field_type: field_descriptor_proto::Type) -> Option<u32> {
     match field_type {
         field_descriptor_proto::Type::TYPE_BOOL => Some(1),
@@ -474,6 +491,12 @@ impl<'a> FieldElem<'a> {
             }
             FieldElem::Group => unreachable!(),
         }
+    }
+
+    /// implementation of ProtobufType trait
+    fn lib_protobuf_type_yyp(&self, reference: &FileAndMod) -> String {
+        self.protobuf_type_gen(reference)
+            .rust_type_yyp(&reference.customize)
     }
 
     /// implementation of ProtobufType trait
@@ -1021,8 +1044,8 @@ impl<'a> FieldGen<'a> {
     fn element_size_yyp(&self, var: &str, var_type: &RustType) -> String {
         assert!(!self.is_repeated_packed());
 
-        match field_type_size(self.proto_type) {
-            Some(data_size) => format!("{}", data_size),
+        match field_type_size_yyp(self.proto_type) {
+            Some(data_size) => format!("{} /* here? */", data_size),
             None => match self.proto_type {
                 field_descriptor_proto::Type::TYPE_MESSAGE => panic!("not a single-liner"),
                 field_descriptor_proto::Type::TYPE_BYTES => format!(
@@ -1036,7 +1059,7 @@ impl<'a> FieldGen<'a> {
                     var
                 ),
                 field_descriptor_proto::Type::TYPE_ENUM => {
-                    format!("{}", 4)
+                    format!("{} /* enum {} */", 4, var)
                 }
                 _ => {
                     let param_type = match var_type {
@@ -1053,12 +1076,10 @@ impl<'a> FieldGen<'a> {
                     } else {
                         let prefix = self.rt_size_fn_prefix();
                         format!(
-                            "{}::rt::{}_size_yyp({}, {}::wire_format::{:?})",
+                            "{}::rt::{}_size_yyp({})",
                             protobuf_crate_path(&self.customize),
                             prefix,
-                            var_type.into_target(&param_type, var, &self.customize),
-                            protobuf_crate_path(&self.customize),
-                            self.wire_type
+                            var_type.into_target(&param_type, var, &self.customize)
                         )
                     }
                 }
@@ -1133,7 +1154,6 @@ impl<'a> FieldGen<'a> {
 
         match self.proto_type {
             field_descriptor_proto::Type::TYPE_MESSAGE => {
-                // TODO(brianjcj): later
                 let param_type = RustType::Ref(Box::new(
                     self.elem().rust_storage_elem_type(
                         &self
@@ -1145,9 +1165,8 @@ impl<'a> FieldGen<'a> {
                 ));
 
                 w.write_line(&format!(
-                    "{}::rt::write_message_field_with_cached_size({}, {}, {})?;",
+                    "{}::rt::write_message_field_with_cached_size_yyp({}, {})?;",
                     protobuf_crate_path(&self.customize),
-                    self.proto_field.number(),
                     v.into_type(param_type, &self.customize).value,
                     os
                 ));
@@ -1353,6 +1372,27 @@ impl<'a> FieldGen<'a> {
                         cb(&v, w);
                     },
                 );
+                w.write_line("else {");
+
+                let elem_type = as_option.rust_type.elem_type();
+                match elem_type {
+                    RustType::Ref(ref mf) => {
+                        match &**mf {
+                            RustType::Message(RustTypeMessage(RustIdentWithPath {ident: ft, ..})) => {
+                                w.write_line(&format!("    let v = {}::default_instance();", ft.get()));
+                                let v = RustValueTyped {
+                                    value: var.to_owned(),
+                                    rust_type: as_option.rust_type.elem_type(),
+                                };
+                                w.indented(|w| {cb(&v, w);});
+                            }
+                            _ => {}
+                        }
+                    }
+                    _ => {}
+                };
+
+                w.write_line("}")
             }
             SingularField {
                 flag: SingularFieldFlag::WithoutFlag,
@@ -1800,7 +1840,7 @@ impl<'a> FieldGen<'a> {
             _ => "",
         };
         w.write_line(&format!(
-            "{}::rt::read_repeated_{}{}_into_yyp{}(is, &mut self.{})?;",
+            "{}::rt::read_repeated_{}{}_into{}_yyp(is, &mut self.{})?;",
             protobuf_crate_path(&self.customize),
             carllerche,
             type_name_for_fn,
@@ -1832,6 +1872,41 @@ impl<'a> FieldGen<'a> {
             carllerche,
             type_name_for_fn,
             into_what_suffix,
+            self.rust_name,
+        ));
+    }
+
+    fn write_merge_from_field_message_string_bytes_singular_yyp(
+        &self,
+        s: &SingularField,
+        w: &mut CodeWriter,
+    ) {
+        let singular_or_proto3 = match s {
+            SingularField {
+                flag: SingularFieldFlag::WithFlag { .. },
+                ..
+            } => "singular",
+            SingularField {
+                flag: SingularFieldFlag::WithoutFlag,
+                ..
+            } => "singular_proto3",
+        };
+        let suffix = match s.elem {
+            FieldElem::Message(..) => "into_field",
+            _ => "into",
+        };
+        let carllerche = match s.elem.primitive_type_variant() {
+            PrimitiveTypeVariant::Carllerche => "carllerche_",
+            PrimitiveTypeVariant::Default => "",
+        };
+        let type_name_for_fn = protobuf_name(self.proto_type);
+        w.write_line(&format!(
+            "{}::rt::read_{}_{}{}_{}_yyp(is, &mut self.{})?;",
+            protobuf_crate_path(&self.customize),
+            singular_or_proto3,
+            carllerche,
+            type_name_for_fn,
+            suffix,
             self.rust_name,
         ));
     }
@@ -1879,8 +1954,7 @@ impl<'a> FieldGen<'a> {
                 self.write_merge_from_field_message_string_bytes_repeated_yyp(r, w)
             }
             FieldKind::Singular(ref s) => {
-                // TODO(brianjcj)
-                self.write_merge_from_field_message_string_bytes_singular(s, w)
+                self.write_merge_from_field_message_string_bytes_singular_yyp(s, w)
             }
             FieldKind::Map(..) | FieldKind::Oneof(..) => unreachable!(),
         };
@@ -1963,6 +2037,20 @@ impl<'a> FieldGen<'a> {
     }
 
     // Write `merge_from` part for this map field
+    fn write_merge_from_map_yyp(&self, w: &mut CodeWriter) {
+        let &MapField {
+            ref key, ref value, ..
+        } = self.map();
+        w.write_line(&format!(
+            "{}::rt::read_map_into_yyp::<{}, {}>(is, &mut {})?;",
+            protobuf_crate_path(&self.customize),
+            key.lib_protobuf_type(&self.get_file_and_mod()),
+            value.lib_protobuf_type(&self.get_file_and_mod()),
+            self.self_field()
+        ));
+    }
+
+    // Write `merge_from` part for this map field
     fn write_merge_from_map(&self, w: &mut CodeWriter) {
         let &MapField {
             ref key, ref value, ..
@@ -1985,7 +2073,6 @@ impl<'a> FieldGen<'a> {
     ) {
         match s.elem {
             FieldElem::Message(..) => {
-                // TODO(brianjcj)
                 self.write_merge_from_field_message_string_bytes_yyp(w);
             }
             _ => {
@@ -2021,7 +2108,7 @@ impl<'a> FieldGen<'a> {
     }
 
     // Write `merge_from` part for this repeated field
-    fn write_merge_from_repeated_yyp(&self, wire_type_var: &str, w: &mut CodeWriter) {
+    fn write_merge_from_repeated_yyp(&self, _wire_type_var: &str, w: &mut CodeWriter) {
         let field = match self.kind {
             FieldKind::Repeated(ref field) => field,
             _ => panic!(),
@@ -2035,18 +2122,16 @@ impl<'a> FieldGen<'a> {
             }
             FieldElem::Enum(..) => {
                 w.write_line(&format!(
-                    "{}::rt::read_repeated_enum_or_unknown_into({}, is, &mut self.{})?",
+                    "{}::rt::read_repeated_enum_or_unknown_into_yyp(is, &mut self.{})?;",
                     protobuf_crate_path(&self.customize),
-                    wire_type_var,
                     self.rust_name,
                 ));
             }
             _ => {
                 w.write_line(&format!(
-                    "{}::rt::read_repeated_{}_into({}, is, &mut self.{})?;",
+                    "{}::rt::read_repeated_{}_into_yyp(is, &mut self.{})?;",
                     protobuf_crate_path(&self.customize),
                     protobuf_name(self.proto_type),
-                    wire_type_var,
                     self.rust_name
                 ));
             }
@@ -2090,7 +2175,7 @@ impl<'a> FieldGen<'a> {
     pub fn write_merge_from_field_yyp(&self, wire_type_var: &str, w: &mut CodeWriter) {
         match self.kind {
             FieldKind::Oneof(ref f) => self.write_merge_from_oneof(&f, wire_type_var, w),
-            FieldKind::Map(..) => self.write_merge_from_map(w),
+            FieldKind::Map(..) => self.write_merge_from_map_yyp(w),
             FieldKind::Singular(ref s) => self.write_merge_from_singular_yyp(s, wire_type_var, w),
             FieldKind::Repeated(..) => self.write_merge_from_repeated_yyp(wire_type_var, w),
         }
@@ -2133,14 +2218,7 @@ impl<'a> FieldGen<'a> {
 
         match self.proto_type {
             field_descriptor_proto::Type::TYPE_MESSAGE => {
-                w.write_line(&format!("let len = {}.compute_size();", item_var));
-                let tag_size = self.tag_size();
-                w.write_line(&format!(
-                    "{} += {} + {}::rt::compute_raw_varint32_size(len) + len;",
-                    sum_var,
-                    tag_size,
-                    protobuf_crate_path(&self.customize),
-                ));
+                w.write_line(&format!("{} += {}.compute_size();", sum_var, item_var));
             }
             _ => {
                 w.write_line(&format!(
@@ -2299,11 +2377,10 @@ impl<'a> FieldGen<'a> {
         match self.kind {
             FieldKind::Singular(ref s) => {
                 self.write_if_let_self_field_is_some_yyp(s, w, |v, w| {
-                    match field_type_size(self.proto_type) {
+                    match field_type_size_yyp(self.proto_type) {
                         Some(s) => {
-                            // TODO(brianjcj)
-                            let tag_size = self.tag_size();
-                            w.write_line(&format!("{} += {};", sum_var, (s + tag_size) as isize));
+                            w.write_line(&format!("{} += {}; /* {} {} */", sum_var, (s) as isize,
+                                                  protobuf_name(self.proto_type), self.self_field()));
                         }
                         None => {
                             self.write_element_size_yyp(w, &v.value, &v.rust_type, sum_var);
@@ -2312,16 +2389,15 @@ impl<'a> FieldGen<'a> {
                 });
             }
             FieldKind::Repeated(RepeatedField { .. }) => {
-                match field_type_size(self.proto_type) {
+                match field_type_size_yyp(self.proto_type) {
                     Some(s) => {
-                        // TODO(brianjcj)
-                        let tag_size = self.tag_size();
                         let self_field = self.self_field();
                         w.write_line(&format!(
-                            "{} += {} * {}.len() as u32;",
+                            "{} += 4 + {} * {}.len() as u32;  /* {} */",
                             sum_var,
-                            (s + tag_size) as isize,
-                            self_field
+                            s  as isize,
+                            self_field,
+                            protobuf_name(self.proto_type)
                         ));
                     }
                     None => {
@@ -2335,14 +2411,12 @@ impl<'a> FieldGen<'a> {
             FieldKind::Map(MapField {
                 ref key, ref value, ..
             }) => {
-                // TODO(brianjcj)
                 w.write_line(&format!(
-                    "{} += {}::rt::compute_map_size::<{}, {}>({}, &{});",
+                    "{} += {}::rt::compute_map_size_yyp::<{}, {}>(&{});",
                     sum_var,
                     protobuf_crate_path(&self.customize),
                     key.lib_protobuf_type(&self.get_file_and_mod()),
-                    value.lib_protobuf_type(&self.get_file_and_mod()),
-                    self.proto_field.number(),
+                    value.lib_protobuf_type_yyp(&self.get_file_and_mod()),
                     self.self_field()
                 ));
             }
