@@ -1374,20 +1374,17 @@ impl<'a> FieldGen<'a> {
                 );
                 w.write_line("else {");
 
+
                 let elem_type = as_option.rust_type.elem_type();
                 match elem_type {
                     RustType::Ref(ref mf) => {
-                        match &**mf {
-                            RustType::Message(RustTypeMessage(RustIdentWithPath {ident: ft, ..})) => {
-                                w.write_line(&format!("    let v = {}::default_instance();", ft.get()));
-                                let v = RustValueTyped {
-                                    value: var.to_owned(),
-                                    rust_type: as_option.rust_type.elem_type(),
-                                };
-                                w.indented(|w| {cb(&v, w);});
-                            }
-                            _ => {}
-                        }
+                        let type_name = mf.to_code(&self.customize);
+                        w.write_line(&format!("    let v = {}::default_instance();", type_name));
+                        let v = RustValueTyped {
+                            value: var.to_owned(),
+                            rust_type: elem_type,
+                        };
+                        w.indented(|w| {cb(&v, w);});
                     }
                     _ => {}
                 };
