@@ -177,6 +177,7 @@ pub trait Message: fmt::Debug + Clear + Send + Sync + Sized + 'static {
         self.check_initialized()?;
 
         let size = self.compute_size() as usize;
+        println!("===== write_to_bytes: size: {}", size);
         let mut v = Vec::with_capacity(size);
         // skip zerofill
         unsafe {

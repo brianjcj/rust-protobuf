@@ -75,6 +75,12 @@ pub trait ProtobufType: Send + Sync + Clone + 'static {
 
     /// Get previously computed size
     #[inline]
+    fn get_cached_size_yyp(value: &Self::ProtobufValue) -> u32 {
+        Self::compute_size_yyp(value)
+    }
+
+    /// Get previously computed size
+    #[inline]
     fn get_cached_size(value: &Self::ProtobufValue) -> u32 {
         Self::compute_size(value)
     }
@@ -88,6 +94,14 @@ pub trait ProtobufType: Send + Sync + Clone + 'static {
         } else {
             size
         }
+    }
+
+    /// Write a value with previously cached size
+    fn write_with_cached_size_yyp(
+        value: &Self::ProtobufValue,
+        os: &mut CodedOutputStream,
+    ) -> ProtobufResult<()> {
+        Err(ProtobufError::MessageNotInitialized("not implemented".to_string()))
     }
 
     /// Write a value with previously cached size
@@ -200,6 +214,13 @@ impl ProtobufType for ProtobufTypeFloat {
         Self::ENCODED_SIZE
     }
 
+    fn write_with_cached_size_yyp(
+        value: &f32,
+        os: &mut CodedOutputStream,
+    ) -> ProtobufResult<()> {
+        os.write_float_yyp(*value)
+    }
+
     fn write_with_cached_size(
         field_number: u32,
         value: &f32,
@@ -237,6 +258,13 @@ impl ProtobufType for ProtobufTypeDouble {
 
     fn compute_size(_value: &f64) -> u32 {
         Self::ENCODED_SIZE
+    }
+
+    fn write_with_cached_size_yyp(
+        value: &f64,
+        os: &mut CodedOutputStream,
+    ) -> ProtobufResult<()> {
+        os.write_double_yyp(*value)
     }
 
     fn write_with_cached_size(
@@ -277,6 +305,14 @@ impl ProtobufType for ProtobufTypeInt32 {
         rt::compute_raw_varint32_size(*value as u32)
     }
 
+    fn write_with_cached_size_yyp(
+        value: &i32,
+        os: &mut CodedOutputStream,
+    ) -> ProtobufResult<()> {
+        println!("int32 write_with_cached_size_yyp");
+        os.write_int32_yyp(*value)
+    }
+
     fn write_with_cached_size(
         field_number: u32,
         value: &i32,
@@ -315,6 +351,13 @@ impl ProtobufType for ProtobufTypeInt64 {
         rt::compute_raw_varint64_size(*value as u64)
     }
 
+    fn write_with_cached_size_yyp(
+        value: &i64,
+        os: &mut CodedOutputStream,
+    ) -> ProtobufResult<()> {
+        os.write_int64_yyp(*value)
+    }
+
     fn write_with_cached_size(
         field_number: u32,
         value: &i64,
@@ -349,6 +392,13 @@ impl ProtobufType for ProtobufTypeUint32 {
         rt::compute_raw_varint32_size(*value)
     }
 
+    fn write_with_cached_size_yyp(
+        value: &u32,
+        os: &mut CodedOutputStream,
+    ) -> ProtobufResult<()> {
+        os.write_uint32_yyp(*value)
+    }
+
     fn write_with_cached_size(
         field_number: u32,
         value: &u32,
@@ -381,6 +431,13 @@ impl ProtobufType for ProtobufTypeUint64 {
 
     fn compute_size(value: &u64) -> u32 {
         rt::compute_raw_varint64_size(*value)
+    }
+
+    fn write_with_cached_size_yyp(
+        value: &u64,
+        os: &mut CodedOutputStream,
+    ) -> ProtobufResult<()> {
+        os.write_uint64_yyp(*value)
     }
 
     fn write_with_cached_size(
@@ -585,6 +642,13 @@ impl ProtobufType for ProtobufTypeBool {
         1
     }
 
+    fn write_with_cached_size_yyp(
+        value: &bool,
+        os: &mut CodedOutputStream,
+    ) -> ProtobufResult<()> {
+        os.write_bool_yyp(*value)
+    }
+
     fn write_with_cached_size(
         field_number: u32,
         value: &bool,
@@ -617,6 +681,13 @@ impl ProtobufType for ProtobufTypeString {
         value.len() as u32
     }
 
+    fn write_with_cached_size_yyp(
+        value: &String,
+        os: &mut CodedOutputStream,
+    ) -> ProtobufResult<()> {
+        os.write_string_yyp(&value)
+    }
+
     fn write_with_cached_size(
         field_number: u32,
         value: &String,
@@ -645,6 +716,13 @@ impl ProtobufType for ProtobufTypeBytes {
 
     fn compute_size(value: &Vec<u8>) -> u32 {
         value.len() as u32
+    }
+
+    fn write_with_cached_size_yyp(
+        value: &Vec<u8>,
+        os: &mut CodedOutputStream,
+    ) -> ProtobufResult<()> {
+        os.write_bytes_yyp(&value)
     }
 
     fn write_with_cached_size(
@@ -733,6 +811,13 @@ impl<E: ProtobufEnum + ProtobufValue + fmt::Debug> ProtobufType for ProtobufType
         rt::compute_raw_varint32_size(value.value() as u32) // TODO: wrap
     }
 
+    fn write_with_cached_size_yyp(
+        value: &E,
+        os: &mut CodedOutputStream,
+    ) -> ProtobufResult<()> {
+        os.write_enum_obj_yyp(*value)
+    }
+
     fn write_with_cached_size(
         field_number: u32,
         value: &E,
@@ -762,6 +847,13 @@ impl<E: ProtobufEnum + ProtobufValue + fmt::Debug> ProtobufType for ProtobufType
 
     fn compute_size(value: &ProtobufEnumOrUnknown<E>) -> u32 {
         rt::compute_raw_varint32_size(value.value() as u32) // TODO: wrap
+    }
+
+    fn write_with_cached_size_yyp(
+        value: &ProtobufEnumOrUnknown<E>,
+        os: &mut CodedOutputStream,
+    ) -> ProtobufResult<()> {
+        os.write_enum_or_unknown_yyp(*value)
     }
 
     fn write_with_cached_size(
@@ -826,7 +918,13 @@ impl<M: YYPMessage + Clone + ProtobufValue + Default> ProtobufType for ProtobufT
 
     const WIRE_TYPE: WireType = WireType::WireTypeLengthDelimited;
 
+    fn read_yyp(is: &mut CodedInputStream) -> ProtobufResult<M> {
+        println!("=======YYPMessage read_yyp called!======");
+        is.read_message_yyp()
+    }
+
     fn read(is: &mut CodedInputStream) -> ProtobufResult<M> {
+        println!("=======YYPMessage read called!======");
         is.read_message_yyp()
     }
 
@@ -855,13 +953,21 @@ impl<M: YYPMessage + Clone + ProtobufValue + Default> ProtobufType for ProtobufT
         value.get_cached_size()
     }
 
+    fn write_with_cached_size_yyp(
+        value: &Self::ProtobufValue,
+        os: &mut CodedOutputStream,
+    ) -> ProtobufResult<()> {
+        println!("=======YYPMessage write_with_cached_size_yyp called!======");
+        value.write_to_with_cached_sizes(os)?;
+        Ok(())
+    }
+
     fn write_with_cached_size(
         field_number: u32,
         value: &Self::ProtobufValue,
         os: &mut CodedOutputStream,
     ) -> ProtobufResult<()> {
         println!("=======YYPMessage write_with_cached_size called!======");
-        os.write_raw_little_endian32(value.get_cached_size())?;
         value.write_to_with_cached_sizes(os)?;
         Ok(())
     }

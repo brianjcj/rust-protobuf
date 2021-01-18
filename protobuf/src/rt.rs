@@ -1126,6 +1126,27 @@ where
 }
 
 /// Write map, message sizes must be already known.
+pub fn write_map_with_cached_sizes_yyp<K, V>(
+    map: &HashMap<K::ProtobufValue, V::ProtobufValue>,
+    os: &mut CodedOutputStream,
+) -> ProtobufResult<()>
+where
+    K: ProtobufType,
+    V: ProtobufType,
+    K::ProtobufValue: Eq + Hash,
+{
+    let len = map.len();
+    println!("===len: {}", len);
+    os.write_raw_little_endian32(len as u32);
+
+    for (k, v) in map {
+        K::write_with_cached_size_yyp(k, os)?;
+        V::write_with_cached_size_yyp(v, os)?;
+    }
+    Ok(())
+}
+
+/// Write map, message sizes must be already known.
 pub fn write_map_with_cached_sizes<K, V>(
     field_number: u32,
     map: &HashMap<K::ProtobufValue, V::ProtobufValue>,
@@ -1161,7 +1182,6 @@ pub fn write_message_field_with_cached_size_yyp<M>(
 where
     M: YYPMessage,
 {
-    os.write_raw_little_endian32(message.get_cached_size())?;
     message.write_to_with_cached_sizes(os)
 }
 

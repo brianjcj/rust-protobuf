@@ -879,12 +879,15 @@ impl<'a> CodedOutputStream<'a> {
     }
 
     fn refresh_buffer(&mut self) -> ProtobufResult<()> {
+        println!("refresh_buffer");
         match self.target {
             OutputTarget::Write(ref mut write, _) => {
+                println!("=====write");
                 write.write_all(&self.buffer[0..self.position as usize])?;
                 self.position = 0;
             }
             OutputTarget::Vec(ref mut vec) => unsafe {
+                println!("=======Vec");
                 let vec_len = vec.len();
                 assert!(vec_len + self.position <= vec.capacity());
                 vec.set_len(vec_len + self.position);
@@ -926,11 +929,13 @@ impl<'a> CodedOutputStream<'a> {
 
     /// Write bytes
     pub fn write_raw_bytes(&mut self, bytes: &[u8]) -> ProtobufResult<()> {
+        println!("======write_raw_bytes: len: {}, {:?}", bytes.len(), bytes);
         if bytes.len() <= self.buffer.len() - self.position {
             let bottom = self.position as usize;
             let top = bottom + (bytes.len() as usize);
             self.buffer[bottom..top].copy_from_slice(bytes);
             self.position += bytes.len();
+            println!("=======write_raw_bytes  =====>");
             return Ok(());
         }
 
@@ -998,6 +1003,11 @@ impl<'a> CodedOutputStream<'a> {
             let len = varint::encode_varint64(value, buf);
             self.write_raw_bytes(&buf[..len])
         }
+    }
+
+    /// Write 16-bit integer little endian
+    pub fn write_raw_little_endian16(&mut self, value: u16) -> ProtobufResult<()> {
+        self.write_raw_bytes(&value.to_le_bytes())
     }
 
     /// Write 32-bit integer little endian
@@ -1225,7 +1235,7 @@ impl<'a> CodedOutputStream<'a> {
 
     /// Write `int32` field
     pub fn write_int32_yyp(&mut self, value: i32) -> ProtobufResult<()> {
-        self.write_int32_no_tag(value)?;
+        self.write_int32_no_tag_yyp(value)?;
         Ok(())
     }
 
@@ -1366,7 +1376,6 @@ impl<'a> CodedOutputStream<'a> {
 
     /// Write bytes
     pub fn write_bytes_no_tag_yyp(&mut self, bytes: &[u8]) -> ProtobufResult<()> {
-        // self.write_raw_varint32(bytes.len() as u32)?;
         self.write_raw_little_endian32(bytes.len() as u32)?;
         self.write_raw_bytes(bytes)?;
         Ok(())
@@ -1381,7 +1390,10 @@ impl<'a> CodedOutputStream<'a> {
 
     /// Write string
     pub fn write_string_no_tag_yyp(&mut self, s: &str) -> ProtobufResult<()> {
-        self.write_bytes_no_tag_yyp(s.as_bytes())
+        let bytes = s.as_bytes();
+        self.write_raw_little_endian16(bytes.len() as u16)?;
+        self.write_raw_bytes(bytes)?;
+        Ok(())
     }
 
     /// Write string

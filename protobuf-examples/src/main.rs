@@ -40,6 +40,18 @@ fn main() {
     cat.map1.insert(100 as i32, bone2);
     let cat_msg_len = cat.compute_size();
     println!("cat_msg_len: {}", cat_msg_len);
+
+    {
+        let mut bone3 = Bone::new();
+        bone3.name = "hello!".to_string();
+        let out_bytes: Vec<u8> = bone3.write_to_bytes().unwrap();
+        println!("out_bytes: {:?}", out_bytes);
+    }
+    {
+        let out_bytes: Vec<u8> = cat.write_to_bytes().unwrap();
+        println!("cat out_bytes: {:?}", out_bytes);
+    }
+
     /*
     // Encode example request
     let mut out_msg = GetRequest::new();

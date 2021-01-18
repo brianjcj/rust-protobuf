@@ -2045,7 +2045,7 @@ impl<'a> FieldGen<'a> {
             "{}::rt::read_map_into_yyp::<{}, {}>(is, &mut {})?;",
             protobuf_crate_path(&self.customize),
             key.lib_protobuf_type(&self.get_file_and_mod()),
-            value.lib_protobuf_type(&self.get_file_and_mod()),
+            value.lib_protobuf_type_yyp(&self.get_file_and_mod()),
             self.self_field()
         ));
     }
@@ -2306,11 +2306,10 @@ impl<'a> FieldGen<'a> {
                 ref key, ref value, ..
             }) => {
                 w.write_line(&format!(
-                    "{}::rt::write_map_with_cached_sizes::<{}, {}>({}, &{}, os)?;",
+                    "{}::rt::write_map_with_cached_sizes_yyp::<{}, {}>(&{}, os)?;",
                     protobuf_crate_path(&self.customize),
                     key.lib_protobuf_type(&self.get_file_and_mod()),
-                    value.lib_protobuf_type(&self.get_file_and_mod()),
-                    self.proto_field.number(),
+                    value.lib_protobuf_type_yyp(&self.get_file_and_mod()),
                     self.self_field()
                 ));
             }
