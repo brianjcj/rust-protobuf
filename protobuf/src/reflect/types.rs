@@ -98,8 +98,8 @@ pub trait ProtobufType: Send + Sync + Clone + 'static {
 
     /// Write a value with previously cached size
     fn write_with_cached_size_yyp(
-        value: &Self::ProtobufValue,
-        os: &mut CodedOutputStream,
+        _value: &Self::ProtobufValue,
+        _os: &mut CodedOutputStream,
     ) -> ProtobufResult<()> {
         Err(ProtobufError::MessageNotInitialized("not implemented".to_string()))
     }
@@ -884,11 +884,9 @@ impl<M: Message + Clone + ProtobufValue + Default> ProtobufType for ProtobufType
             .map(|bytes| M::parse_from_bytes(bytes).expect("cannot parse message"))
     }
 
-    fn compute_size_yyp(value: &M) -> u32 {
+    fn compute_size_yyp(_value: &M) -> u32 {
         println!("=======Message get_cached_size called!======");
-        // panic!("not implemented");
-        // YYPMessage::compute_size(value as &dyn YYPMessage)
-        1000
+        panic!("not implemented");
     }
 
     fn compute_size(value: &M) -> u32 {
@@ -963,7 +961,7 @@ impl<M: YYPMessage + Clone + ProtobufValue + Default> ProtobufType for ProtobufT
     }
 
     fn write_with_cached_size(
-        field_number: u32,
+        _field_number: u32,
         value: &Self::ProtobufValue,
         os: &mut CodedOutputStream,
     ) -> ProtobufResult<()> {

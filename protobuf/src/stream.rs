@@ -405,7 +405,7 @@ impl<'a> CodedInputStream<'a> {
 
     /// Read `bool`
     pub fn read_bool_yyp(&mut self) -> ProtobufResult<bool> {
-        self.read_raw_little_endian32().map(|v| v != 0)
+        self.read_raw_byte().map(|v| v != 0)
     }
 
     /// Read `bool`
@@ -1128,7 +1128,7 @@ impl<'a> CodedOutputStream<'a> {
 
     /// Write `bool`
     pub fn write_bool_no_tag_yyp(&mut self, value: bool) -> ProtobufResult<()> {
-        self.write_raw_little_endian32(if value { 1 } else { 0 })
+        self.write_raw_byte(if value { 1 } else { 0 })
     }
 
     /// Write `bool`
@@ -1377,7 +1377,9 @@ impl<'a> CodedOutputStream<'a> {
     /// Write bytes
     pub fn write_bytes_no_tag_yyp(&mut self, bytes: &[u8]) -> ProtobufResult<()> {
         self.write_raw_little_endian32(bytes.len() as u32)?;
-        self.write_raw_bytes(bytes)?;
+        if bytes.len() > 0 {
+            self.write_raw_bytes(bytes)?;
+        }
         Ok(())
     }
 
@@ -1392,7 +1394,9 @@ impl<'a> CodedOutputStream<'a> {
     pub fn write_string_no_tag_yyp(&mut self, s: &str) -> ProtobufResult<()> {
         let bytes = s.as_bytes();
         self.write_raw_little_endian16(bytes.len() as u16)?;
-        self.write_raw_bytes(bytes)?;
+        if bytes.len() > 0 {
+            self.write_raw_bytes(bytes)?;
+        }
         Ok(())
     }
 

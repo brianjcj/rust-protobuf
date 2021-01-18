@@ -12,7 +12,7 @@ message Bone {
   string name = 1;
 }
 
-message cat {
+message Cat {
   Bone bone = 1;
   map<int32, Bone> map1 = 2;
 }
@@ -41,8 +41,8 @@ message GetRequest {
   repeated bytes datas = 5;
   repeated bool facts = 6;
   repeated MyStatus sss = 7;
-  Dog peg = 8;
-  repeated Dog dogs = 9;
+  repeated Dog dogs = 8;
+  Dog peg = 9;
 
   option (yyp.uri) = 1411160;
 }

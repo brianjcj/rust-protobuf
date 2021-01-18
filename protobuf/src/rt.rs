@@ -261,13 +261,17 @@ pub fn enum_or_unknown_size<E: ProtobufEnum>(
     tag_size(field_number) + enum_or_unknown_size_no_tag(value)
 }
 
+fn bytes_size_no_tag_yyp(bytes: &[u8]) -> u32 {
+    4 + bytes.len() as u32
+}
+
 fn bytes_size_no_tag(bytes: &[u8]) -> u32 {
     compute_raw_varint64_size(bytes.len() as u64) + bytes.len() as u32
 }
 
 /// Size of encoded bytes field.
 pub fn bytes_size_yyp(bytes: &[u8]) -> u32 {
-    bytes_size_no_tag(bytes)
+    bytes_size_no_tag_yyp(bytes)
 }
 
 /// Size of encoded bytes field.
@@ -1137,7 +1141,7 @@ where
 {
     let len = map.len();
     println!("===len: {}", len);
-    os.write_raw_little_endian32(len as u32);
+    os.write_raw_little_endian32(len as u32)?;
 
     for (k, v) in map {
         K::write_with_cached_size_yyp(k, os)?;
