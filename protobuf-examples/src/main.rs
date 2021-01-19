@@ -16,23 +16,106 @@ use protos::generated_with_native::uri::exts::uri;
 use protos::generated_with_native::example::Bone;
 use protos::generated_with_native::example::Cat;
 use protos::generated_with_native::example::Dog;
+use protos::generated_with_native::yypspecial::Uint8;
+use protos::generated_with_native::yypspecial::Uint16;
+use protos::generated_with_native::example::YYPSmallNumber;
 
-fn main() {
-    println!("hello main");
-    println!("uri: {:?}", uri.field_number);
+fn try_rust() {
+    println!("--------try--------");
+}
+
+fn test_yypspecial() {
+    println!("\n--------hello yypspeical--------");
+    println!("--------test Uint8--------");
     {
-        use protobuf::Message;
-        // method 1:
-        println!("yy.uri: {:#?}", file_descriptor()
-                 .message_by_package_relative_name("GetRequest").unwrap()
-                 .get_proto().options.get_or_default().get_unknown_fields()
-                 .get(uri.field_number).unwrap().varint.first().unwrap());
-        // method 2:
-        println!("yy.uri: {:#?}", <GetRequest as Message>::descriptor_static()
-                 .get_proto().options.get_or_default().get_unknown_fields()
-                 .get(uri.field_number).unwrap().varint.first().unwrap());
+        let mut msg = Uint8::new();
+        msg.data = "150".to_string();
+        println!("msg: {:#?}", msg);
+
+        let out_bytes: Vec<u8> = msg.write_to_bytes().unwrap();
+        println!("out_bytes: {:?}", out_bytes);
+        let in_msg = Uint8::parse_from_bytes(&out_bytes).unwrap();
+        println!("in_msg: {:#?}", in_msg);
+    }
+    println!("--------test Uint16--------");
+    {
+        let mut msg = Uint16::new();
+        msg.data = "6501".to_string();
+        println!("msg: {:#?}", msg);
+
+        let out_bytes: Vec<u8> = msg.write_to_bytes().unwrap();
+        println!("out_bytes: {:?}", out_bytes);
+        let in_msg = Uint16::parse_from_bytes(&out_bytes).unwrap();
+        println!("in_msg: {:#?}", in_msg);
+    }
+    println!("--------test YYPSmallNumber--------");
+    {
+        let mut msg = YYPSmallNumber::new();
+        {
+            let mut n8 = Uint8::new();
+            n8.data = "3".to_string();
+            msg.n8 = MessageField::some(n8);
+        }
+        {
+            let mut n8 = Uint8::new();
+            n8.data = "7".to_string();
+            msg.rep8.push(n8);
+        }
+        {
+            let mut n8 = Uint8::new();
+            n8.data = "8".to_string();
+            msg.rep8.push(n8);
+        }
+        {
+            let mut n8 = Uint8::new();
+            n8.data = "8".to_string();
+            msg.map8.insert(5, n8);
+        }
+
+        {
+            let mut n16 = Uint16::new();
+            n16.data = "7".to_string();
+            msg.rep16.push(n16);
+        }
+        {
+            let mut n16 = Uint16::new();
+            n16.data = "8".to_string();
+            msg.rep16.push(n16);
+        }
+        {
+            let mut n16 = Uint16::new();
+            n16.data = "8".to_string();
+            msg.map16.insert(5, n16);
+        }
+
+        let mut n16 = Uint16::new();
+        n16.data = "30617".to_string();
+        msg.n16 = MessageField::some(n16);
+        println!("msg: {:#?}", msg);
+
+        let out_bytes: Vec<u8> = msg.write_to_bytes().unwrap();
+        println!("out_bytes: {:?}", out_bytes);
+        let in_msg = YYPSmallNumber::parse_from_bytes(&out_bytes).unwrap();
+        println!("in_msg: {:#?}", in_msg);
     }
 
+}
+
+fn test_uri() {
+    println!("uri: {:?}", uri.field_number);
+    use protobuf::Message;
+    // method 1 to get uri:
+    println!("yy.uri: {:#?}", file_descriptor()
+             .message_by_package_relative_name("GetRequest").unwrap()
+             .get_proto().options.get_or_default().get_unknown_fields()
+             .get(uri.field_number).unwrap().varint.first().unwrap());
+    // method 2 to get uri:
+    println!("yy.uri: {:#?}", <GetRequest as Message>::descriptor_static()
+             .get_proto().options.get_or_default().get_unknown_fields()
+             .get(uri.field_number).unwrap().varint.first().unwrap());
+}
+
+fn test_fileds() {
     let mut bone = Bone::new();
     bone.name = "hello!".to_string();
     let bone_msg_len = bone.compute_size();
@@ -62,7 +145,7 @@ fn main() {
         let out_bytes: Vec<u8> = cat.write_to_bytes().unwrap();
         println!("cat out_bytes: {:?}", out_bytes);
         let in_msg = Cat::parse_from_bytes(&out_bytes).unwrap();
-        println!("cat in_mnsg: {:#?}", in_msg);
+        println!("cat in_msg: {:#?}", in_msg);
     }
 
     {
@@ -71,9 +154,11 @@ fn main() {
         let out_bytes: Vec<u8> = dog.write_to_bytes().unwrap();
         println!("dog out_bytes: {:?}", out_bytes);
         let in_msg = Dog::parse_from_bytes(&out_bytes).unwrap();
-        println!("dog in_mnsg: {:#?}", in_msg);
+        println!("dog in_msg: {:#?}", in_msg);
     }
+}
 
+fn test() {
     // Encode example request
     let mut out_msg = GetRequest::new();
     out_msg.name = "John Smith".to_string();
@@ -107,4 +192,18 @@ fn main() {
     assert_eq!(in_resp.status, out_resp.status);
     assert_eq!(in_resp.zipcode, out_resp.zipcode);
     assert_eq!(in_resp.address, out_resp.address);
+}
+
+fn main() {
+    println!("hello example!");
+
+    test_uri();
+
+    test_fileds();
+
+    test();
+
+    test_yypspecial();
+
+    try_rust();
 }

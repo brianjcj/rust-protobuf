@@ -240,18 +240,22 @@ impl<'a> MessageGen<'a> {
         );
         w.def_fn(&sig, |w| {
             // To have access to its methods but not polute the name space.
-            for f in self.fields_except_oneof_and_group() {
-                // w.comment(&format!("{:?}, {:?}", f.proto_type, f.rust_name));
-                f.write_message_write_field_yyp(w);
+            let t_name = self.type_name.ident.get();
+            if t_name == "Uint8" {
+                for f in self.fields_except_oneof_and_group() {
+                    w.write_line(&format!("os.write_raw_byte(self.{}.parse::<u8>().unwrap_or(0))?;", f.rust_name));
+                    break;
+                }
+            } else if t_name == "Uint16" {
+                for f in self.fields_except_oneof_and_group() {
+                    w.write_line(&format!("os.write_raw_little_endian16(self.{}.parse::<u16>().unwrap_or(0))?;", f.rust_name));
+                    break;
+                }
+            } else {
+                for f in self.fields_except_oneof_and_group() {
+                    f.write_message_write_field_yyp(w);
+                }
             }
-            // self.write_match_each_oneof_variant(w, |w, variant, v, v_type| {
-            //     let v = RustValueTyped {
-            //         value: v.to_owned(),
-            //         rust_type: v_type.clone(),
-            //     };
-            //     variant.field.write_write_element(w, "os", &v);
-            // });
-            // w.write_line("os.write_unknown_fields(self.get_unknown_fields())?;");
             w.write_line("::std::result::Result::Ok(())");
         });
     }
@@ -353,17 +357,20 @@ impl<'a> MessageGen<'a> {
         w.allow(&["unused_variables"]);
         w.def_fn("compute_size(&self) -> u32", |w| {
             // To have access to its methods but not polute the name space.
-            w.write_line("let mut my_size = 0;");
-            for field in self.fields_except_oneof_and_group() {
-                field.write_message_compute_field_size_yyp("my_size", w);
+
+            let t_name = self.type_name.ident.get();
+            if t_name == "Uint8" {
+                w.comment(&format!("type_name: {}. need special treatment.", self.type_name));
+                w.write_line("let my_size = 1;");
+            } else if t_name == "Uint16" {
+                w.comment(&format!("type_name: {}. need special treatment.", self.type_name));
+                w.write_line("let my_size = 2;");
+            } else {
+                w.write_line("let mut my_size = 0;");
+                for field in self.fields_except_oneof_and_group() {
+                    field.write_message_compute_field_size_yyp("my_size", w);
+                }
             }
-            // self.write_match_each_oneof_variant(w, |w, variant, v, vtype| {
-            //     variant.field.write_element_size(w, v, vtype, "my_size");
-            // });
-            // w.write_line(&format!(
-            //     "my_size += {}::rt::unknown_fields_size(self.get_unknown_fields());",
-            //     protobuf_crate_path(&self.customize)
-            // ));
             w.write_line("self.cached_size.set(my_size);");
             w.write_line("my_size");
         });
@@ -437,9 +444,25 @@ impl<'a> MessageGen<'a> {
             protobuf_crate_path(&self.customize),
             protobuf_crate_path(&self.customize),
         );
+
         w.def_fn(&sig, |w| {
-            for f in &self.fields_except_group() {
-                f.write_merge_from_field_yyp("wire_type", w);
+            let t_name = self.type_name.ident.get();
+            if t_name == "Uint8" {
+                w.comment(&format!("type_name: {}. need special treatment.", self.type_name));
+                for f in &self.fields_except_group() {
+                    w.write_line(&format!("self.{} = is.read_raw_byte()?.to_string();", f.rust_name));
+                    break;
+                }
+            } else if t_name == "Uint16" {
+                w.comment(&format!("type_name: {}. need special treatment.", self.type_name));
+                for f in &self.fields_except_group() {
+                    w.write_line(&format!("self.{} = is.read_raw_little_endian16()?.to_string();", f.rust_name));
+                    break;
+                }
+            } else {
+                for f in &self.fields_except_group() {
+                    f.write_merge_from_field_yyp("wire_type", w);
+                }
             }
             w.write_line("::std::result::Result::Ok(())");
         });
@@ -563,8 +586,8 @@ impl<'a> MessageGen<'a> {
                 w.write_line("");
                 self.write_get_cached_size(w);
                 w.write_line("");
-                // self.write_unknown_fields(w);
-                // w.write_line("");
+                self.write_unknown_fields(w);
+                w.write_line("");
                 w.def_fn(&format!("new() -> {}", self.type_name), |w| {
                     w.write_line(&format!("{}::new()", self.type_name));
                 });

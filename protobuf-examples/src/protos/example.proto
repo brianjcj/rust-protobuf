@@ -1,6 +1,7 @@
 syntax = "proto3";
 
 import "uri.proto";
+import "yypspecial.proto";
 
 enum MyStatus {
   OK = 0;
@@ -59,3 +60,11 @@ message GetResponse {
   int32 zipcode = 4;
 }
 
+message YYPSmallNumber {
+  Uint8 n8 = 1;
+  repeated Uint8 rep8 = 2;
+  map<int32, Uint8> map8 = 3;
+  Uint16 n16 = 4;
+  repeated Uint16 rep16 = 5;
+  map<int32, Uint16> map16 = 6;
+}

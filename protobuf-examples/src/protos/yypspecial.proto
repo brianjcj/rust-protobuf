@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+message Uint8 {   //数据类型扩展，名字必须是Uint8，代表uint8数据类型
+  string data=1;  //uint8转成string存放
+}
+
+message Uint16 {  //数据类型扩展，名字必须是Uint16，代表uint16数据类型
+  string data=1;  //uint16转成string存放
+}
