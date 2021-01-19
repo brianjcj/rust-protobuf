@@ -68,3 +68,13 @@ message YYPSmallNumber {
   repeated Uint16 rep16 = 5;
   map<int32, Uint16> map16 = 6;
 }
+
+message SomethingLen32 {
+  int32 n = 1;
+}
+
+message Dragon {
+  SomethingLen32 data = 1;
+  repeated SomethingLen32 rep1 = 2;
+  map<int32, SomethingLen32> map1 = 3;
+}

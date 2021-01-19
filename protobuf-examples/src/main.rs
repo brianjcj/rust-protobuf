@@ -19,9 +19,57 @@ use protos::generated_with_native::example::Dog;
 use protos::generated_with_native::yypspecial::Uint8;
 use protos::generated_with_native::yypspecial::Uint16;
 use protos::generated_with_native::example::YYPSmallNumber;
+use protos::generated_with_native::example::SomethingLen32;
+use protos::generated_with_native::example::Dragon;
 
 fn try_rust() {
     println!("--------try--------");
+}
+
+fn test_yyp_len32() {
+    println!("\n--------hello yyp len32--------");
+    {
+        let mut msg = SomethingLen32::new();
+        msg.n = 0x01020304;
+        println!("msg: {:#?}", msg);
+
+        let out_bytes: Vec<u8> = msg.write_to_bytes().unwrap();
+        println!("out_bytes: {:?}", out_bytes);
+        let in_msg = SomethingLen32::parse_from_bytes(&out_bytes).unwrap();
+        println!("in_msg: {:#?}", in_msg);
+    }
+
+    {
+        let mut msg0 = SomethingLen32::new();
+        msg0.n = 0x01020304;
+
+        let mut msg = Dragon::new();
+        msg.data = MessageField::some(msg0);
+        println!("msg: {:#?}", msg);
+
+        // repeate
+        {
+            let mut msg0 = SomethingLen32::new();
+            msg0.n = 0x01020304;
+            msg.rep1.push(msg0)
+        }
+        {
+            let mut msg0 = SomethingLen32::new();
+            msg0.n = 0x05060708;
+            msg.rep1.push(msg0)
+        }
+        // map
+        {
+            let mut msg0 = SomethingLen32::new();
+            msg0.n = 0x05060708;
+            msg.map1.insert(5, msg0);
+        }
+
+        let out_bytes: Vec<u8> = msg.write_to_bytes().unwrap();
+        println!("out_bytes: {:?}", out_bytes);
+        let in_msg = Dragon::parse_from_bytes(&out_bytes).unwrap();
+        println!("in_msg: {:#?}", in_msg);
+    }
 }
 
 fn test_yypspecial() {
@@ -204,6 +252,8 @@ fn main() {
     test();
 
     test_yypspecial();
+
+    test_yyp_len32();
 
     try_rust();
 }

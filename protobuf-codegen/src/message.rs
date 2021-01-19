@@ -252,6 +252,10 @@ impl<'a> MessageGen<'a> {
                     break;
                 }
             } else {
+                if t_name.ends_with("Len32") {
+                    w.write_line("os.write_raw_little_endian32(self.get_cached_size() - 4)?;  // Len32: write msg len");
+                }
+
                 for f in self.fields_except_oneof_and_group() {
                     f.write_message_write_field_yyp(w);
                 }
@@ -367,6 +371,10 @@ impl<'a> MessageGen<'a> {
                 w.write_line("let my_size = 2;");
             } else {
                 w.write_line("let mut my_size = 0;");
+                if t_name.ends_with("Len32") {
+                    w.write_line("my_size += 4; //  Len32: add msg len size");
+                }
+
                 for field in self.fields_except_oneof_and_group() {
                     field.write_message_compute_field_size_yyp("my_size", w);
                 }
@@ -460,6 +468,10 @@ impl<'a> MessageGen<'a> {
                     break;
                 }
             } else {
+                if t_name.ends_with("Len32") {
+                    w.write_line("is.read_raw_little_endian32()?;  // Len32: skip msg len field");
+                }
+
                 for f in &self.fields_except_group() {
                     f.write_merge_from_field_yyp("wire_type", w);
                 }
